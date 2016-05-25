@@ -10,6 +10,20 @@ Firstly you have to set your token. Create file `.lein-env` in project directory
 {:telegram-bot-token  "your_token"}
 ```
 
+## Dependency
+
+```clojure
+[org.clojars.hsestupin/slark "0.0.1"]
+```
+
+```xml
+<dependency>
+  <groupId>org.clojars.hsestupin</groupId>
+  <artifactId>slark</artifactId>
+  <version>0.0.1</version>
+</dependency>
+```
+
 ## License
 
 Copyright © 2016 FIXME
