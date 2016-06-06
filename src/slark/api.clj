@@ -21,8 +21,8 @@
 (defn- get-result
   [payload-only response]
   (if payload-only
-      (extract-telegram-payload response)
-      response))
+    (extract-telegram-payload response)
+    response))
 
 (defn- do-get-request
   "Do a HTTP GET request to a telegram bot API with specified url-suffix and query-params"
@@ -62,17 +62,24 @@
                                               :multipart multipart-data})]
     (get-result payload-only response)))
 
+(defn get-me
+  "A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. https://core.telegram.org/bots/api#getme
+
+  You might want to get not all http response but telegram API part only - to extract payload part only add ':payload-only true' to arguments"
+  [& {:as params}]
+  (do-get-request params {} "/getMe"))
+
+(defn send-message
+  "Use this method to send text messages. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendmessage
+
+  You might want to get not all http response but telegram API part only - to extract payload part only add ':payload-only true' to arguments"
+  [& {:keys [chat-id text] :as params}]
+  (let [query-params {:chat_id chat-id
+                      :text text}]
+    (do-get-request params query-params "/sendMessage")))
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+;; For debugging purposes
+(comment
+  (do
+    (def chat-id (Integer/parseInt (env :chat-id)))))
