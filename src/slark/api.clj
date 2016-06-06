@@ -55,12 +55,17 @@
   (let [telegram-api-url (build-telegram-api-url params "/setWebhook")
         cert-file (clojure.java.io/file certificate)
         partial-data [{:name "url" :content url}]
-        multipart-data (if (.exists cert-file)
+        multipart-data (if (and cert-file (.exists cert-file))
                          (conj partial-data {:name  "certificate" :content cert-file})
                          partial-data)
         response (http/post telegram-api-url {:accept :json
                                               :multipart multipart-data})]
     (get-result payload-only response)))
+
+
+
+
+
 
 
 
