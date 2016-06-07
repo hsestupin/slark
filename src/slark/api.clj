@@ -10,14 +10,18 @@
   (env :telegram-bot-token))
 
 (defn- to-telegram-format-keys
-  "Transform map keys to telegram format with underscore"
+  "Recursively transforms all map keys to telegram format replacing '-' with '_'"
   [m]
-  (into {} (map (fn [[k v]]
-                  [(-> k
-                       name
-                       (str/replace "-" "_"))
-                   v])
-                m)))
+  (let [to-telegram-format (fn [[k v]]
+                        [(-> k
+                             name
+                             (str/replace "-" "_"))
+                         v])]
+    (clojure.walk/postwalk (fn [x]
+                             (if (map? x)
+                               (into {} (map to-telegram-format x))
+                               x))
+                           m)))
 
 (defn- build-telegram-api-url
   [{:keys [token] :or {token (get-token)} :as params} url-suffix]
@@ -103,15 +107,3 @@
 (comment
   (do
     (def chat-id (Integer/parseInt (env :chat-id)))))
-
-
-
-
-
-
-
-
-
-
-
-
