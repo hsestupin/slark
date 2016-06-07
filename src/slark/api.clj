@@ -102,6 +102,17 @@
                                           :reply-markup])]
     (do-get-request params query-params "/sendMessage")))
 
+(defn forward-message
+  "Use this method to forward messages of any kind. On success, the sent Message is returned. https://core.telegram.org/bots/api#forwardmessage
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:as params}]
+  (let [query-params (select-keys params [:chat-id
+                                          :from-chat-id
+                                          :disable-notification
+                                          :message-id])]
+    (do-get-request params query-params "/forwardMessage")))
+
 
 ;; For debugging purposes
 (comment

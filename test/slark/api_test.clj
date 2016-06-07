@@ -1,12 +1,15 @@
-(ns slark.core-test
+(ns slark.api-test
   (:require [clojure.test :refer :all]
             [slark.core :refer :all]
             [slark.api :refer :all]
             [environ.core :refer [env]]))
 
+(def ^:const bot-id 161840425)
+(def ^:const message-id 45)
+
 (defn is-clojure-test-bot
   [{:keys [id first-name username] :as telegram-response}]
-  (is (= id 161840425))
+  (is (= id bot-id))
   (is (= first-name "clojuretestbot"))
   (is (= username "clojure_tests_bot")))
 
@@ -70,4 +73,19 @@
       (is (:ok message))
       (is-clojure-test-bot (get-in message [:result :from]))
       (is (= (get-chat-id) (get-in message [:result :chat :id])))
-      (is (= "bold italic link." (get-in message [:result :text]))))))
+      (is (= "bold italic link." (get-in message [:result :text])))))
+
+  (testing "bad /sendMessage request"
+    (let [message (send-message :chat-id (get-chat-id))]
+      (is (not (:ok message)))
+      (is (= 400 (:error-code message)))
+      (is (= "Bad Request: Message text is empty" (:description message))))))
+
+(deftest forward-message-test
+  (testing "simple forward-message"
+    (let [message (forward-message :chat-id (get-chat-id)
+                                   :from-chat-id (get-chat-id)
+                                   :disable-notification true
+                                   :message-id message-id)]
+      (is (:ok message))
+      (is (= "Message to forward" (get-in message [:result :text]))))))
