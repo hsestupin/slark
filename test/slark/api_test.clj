@@ -4,6 +4,7 @@
             [slark.api :refer :all]
             [environ.core :refer [env]]))
 
+(def ^:const test-token "161840425:AAGbk0nBjhGL1EXXaSjVXUtCvI1R_FGoXoI")
 (def ^:const bot-id 161840425)
 (def ^:const message-id 45)
 
@@ -15,7 +16,7 @@
 
 (deftest get-me-test
   (testing "/getMe raw function"
-    (let [response (get-me :entire-response? true)
+    (let [response (get-me :token test-token :entire-response? true)
           telegram-response (extract-telegram-payload response)]
       (is (not (nil?  response)))
       (is (= 200 (:status response)))
@@ -23,7 +24,7 @@
       (is-clojure-test-bot (:result telegram-response))))
 
   (testing "/getMe payload-only function"
-    (let [telegram-response (get-me)]
+    (let [telegram-response (get-me :token test-token)]
       (is (:ok telegram-response))
       (is-clojure-test-bot (:result telegram-response))))
 
@@ -39,7 +40,8 @@
 
 (deftest send-message-test
   (testing "simple /sendMessage"
-    (let [message (send-message :chat-id (get-chat-id)
+    (let [message (send-message :token test-token
+                                :chat-id (get-chat-id)
                                 :text "Hi, it's test message.")]
       (is (:ok message))
       (is-clojure-test-bot (get-in message [:result :from]))
@@ -47,7 +49,8 @@
       (is (= "Hi, it's test message." (get-in message [:result :text])))))
 
   (testing "simple /sendMessage silently"
-    (let [message (send-message :chat-id (get-chat-id)
+    (let [message (send-message :token test-token
+                                :chat-id (get-chat-id)
                                 :text "Hi, it's silent test message."
                                 :disable-notification true)]
       (is (:ok message))
@@ -56,7 +59,8 @@
       (is (= "Hi, it's silent test message." (get-in message [:result :text])))))
 
   (testing "/sendMessage with Markdown parse-mode"
-    (let [message (send-message :chat-id (get-chat-id)
+    (let [message (send-message :token test-token
+                                :chat-id (get-chat-id)
                                 :text "*bold* _italic_ [link](http://google.com)."
                                 :disable-notification true
                                 :parse-mode "Markdown")]
@@ -66,7 +70,8 @@
       (is (= "bold italic link." (get-in message [:result :text])))))
 
   (testing "/sendMessage with HTML parse-mode"
-    (let [message (send-message :chat-id (get-chat-id)
+    (let [message (send-message :token test-token
+                                :chat-id (get-chat-id)
                                 :text "<b>bold</b> <i>italic</i> <a href=\"http://google.com\">link</a>."
                                 :disable-notification true
                                 :parse-mode "HTML")]
@@ -76,16 +81,43 @@
       (is (= "bold italic link." (get-in message [:result :text])))))
 
   (testing "bad /sendMessage request"
-    (let [message (send-message :chat-id (get-chat-id))]
+    (let [message (send-message :token test-token
+                                :chat-id (get-chat-id))]
       (is (not (:ok message)))
       (is (= 400 (:error-code message)))
       (is (= "Bad Request: Message text is empty" (:description message))))))
 
+(defn- remove-webhook []
+  (set-webhook :token test-token))
+
+(deftest set-webhook-test
+  (testing "simple test webhook without cert"
+    (remove-webhook)
+    (let [update (set-webhook :token test-token
+                              :url "https://google.com")]
+      (is (:ok update))
+      (is (:result update))
+      (is (= "Webhook was set" (:description update))))
+    (let [update (remove-webhook)]
+      (is (:ok update))
+      (is (:result update))
+      (is (= "Webhook was deleted" (:description update))))))
+
 (deftest forward-message-test
   (testing "simple forward-message"
-    (let [message (forward-message :chat-id (get-chat-id)
+    (let [message (forward-message :token test-token
+                                   :chat-id (get-chat-id)
                                    :from-chat-id (get-chat-id)
                                    :disable-notification true
                                    :message-id message-id)]
       (is (:ok message))
       (is (= "Message to forward" (get-in message [:result :text]))))))
+
+(deftest send-photo-test
+  (testing "simple forward-message"
+    (let [message (send-photo :token test-token
+                              :chat-id (get-chat-id)
+                              :disable-notification true
+                              :photo "resources/cat.jpg")]
+      (is (:ok message))
+      (is (vector? (get-in message [:result :photo]))))))

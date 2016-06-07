@@ -2,7 +2,8 @@
   (:use [environ.core :refer [env]])
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.java.io :as io]))
 
 (def base-url "https://api.telegram.org/bot")
 
@@ -50,6 +51,16 @@
                             :query-params (to-telegram-format-keys query-params)})]
     (get-result entire-response? response)))
 
+(defn- do-post-request
+  "Do a HTTP POST multipart/form-data request to a telegram bot API with specified url-suffix and multipart-data"
+  [{:keys [entire-response?] :as params} multipart-data url-suffix]
+  (let [telegram-api-url (build-telegram-api-url params url-suffix) 
+        response (http/post telegram-api-url
+                           {:throw-exceptions? false
+                            :accept :json
+                            :multipart multipart-data})]
+    (get-result entire-response? response)))
+
 (defn get-updates
   "Receive updates from telegram Bot via long-polling. 
   Supported parameters: :timeout, :offset, :limit.
@@ -69,17 +80,13 @@
   How to generate self-signed certificate - https://core.telegram.org/bots/self-signed
 
   You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
-  [& {:keys [url certificate entire-response?] :or {url ""} :as params}]
-  (let [telegram-api-url (build-telegram-api-url params "/setWebhook")
-        cert-file (clojure.java.io/file certificate)
+  [& {:keys [url certificate] :or {url ""} :as params}]
+  (let [cert-file (clojure.java.io/file certificate)
         partial-data [{:name "url" :content url}]
         multipart-data (if (and cert-file (.exists cert-file))
                          (conj partial-data {:name  "certificate" :content cert-file})
-                         partial-data)
-        response (http/post telegram-api-url {:throw-exceptions? false
-                                              :accept :json
-                                              :multipart multipart-data})]
-    (get-result entire-response? response)))
+                         partial-data)]
+    (do-post-request params multipart-data "/setWebhook")))
 
 (defn get-me
   "A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. https://core.telegram.org/bots/api#getme
@@ -112,6 +119,31 @@
                                           :disable-notification
                                           :message-id])]
     (do-get-request params query-params "/forwardMessage")))
+
+(defn as-input-file-or-string
+  "Tries to cast argument to InputFile. Otherwise returns String"
+  [file-or-string]
+  (let [file (io/file file-or-string)]
+    (if (and file (.exists file))
+      file
+      file-or-string)))
+
+(defn send-photo
+  "Use this method to send photos. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendphoto
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id photo]
+      :as params}]
+  (let [partial-data [{:name "chat_id" :content (str chat-id)}
+                      {:name "photo" :content (as-input-file-or-string photo)}]
+        optional-params (to-telegram-format-keys
+                         (select-keys params
+                                      [:caption :disable-notification :reply-to-message-id :reply-markup]))
+        multipart-data
+        (reduce (fn [data [k v]] (conj data {:name k :content (str v)}))
+                partial-data
+                optional-params)]
+    (do-post-request params multipart-data "/sendPhoto")))
 
 
 ;; For debugging purposes
