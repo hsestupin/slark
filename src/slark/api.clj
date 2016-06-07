@@ -1,12 +1,23 @@
 (ns slark.api
   (:use [environ.core :refer [env]])
   (:require [clj-http.client :as http]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [clojure.string :as str]))
 
 (def base-url "https://api.telegram.org/bot")
 
 (defn get-token []
   (env :telegram-bot-token))
+
+(defn- to-telegram-format-keys
+  "Transform map keys to telegram format with underscore"
+  [m]
+  (into {} (map (fn [[k v]]
+                  [(-> k
+                       name
+                       (str/replace "-" "_"))
+                   v])
+                m)))
 
 (defn- build-telegram-api-url
   [{:keys [token] :or {token (get-token)} :as params} url-suffix]
@@ -16,7 +27,8 @@
   [response]
   (-> response
       :body
-      (json/read-str :key-fn keyword)))
+      ;; clojurify response keys. Write chat-id instead of chat_id 
+      (json/read-str :key-fn #(keyword (str/replace % "_" "-")))))
 
 (defn- get-result
   [payload-only response]
@@ -29,7 +41,7 @@
   [{:keys [payload-only] :as params} query-params url-suffix]
   (let [telegram-api-url (build-telegram-api-url params url-suffix) 
         response (http/get telegram-api-url
-                           {:accept :json :query-params query-params})]
+                           {:accept :json :query-params (to-telegram-format-keys query-params)})]
     (get-result payload-only response)))
 
 (defn get-updates
@@ -73,9 +85,8 @@
   "Use this method to send text messages. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendmessage
 
   You might want to get not all http response but telegram API part only - to extract payload part only add ':payload-only true' to arguments"
-  [& {:keys [chat-id text] :as params}]
-  (let [query-params {:chat_id chat-id
-                      :text text}]
+  [& {:as params}]
+  (let [query-params (select-keys params [:chat-id :text])]
     (do-get-request params query-params "/sendMessage")))
 
 
