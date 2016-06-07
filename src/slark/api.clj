@@ -23,7 +23,7 @@
   [{:keys [token] :or {token (get-token)} :as params} url-suffix]
   (str base-url token url-suffix))
 
-(defn- extract-telegram-payload
+(defn extract-telegram-payload
   [response]
   (-> response
       :body
@@ -41,7 +41,9 @@
   [{:keys [payload-only] :as params} query-params url-suffix]
   (let [telegram-api-url (build-telegram-api-url params url-suffix) 
         response (http/get telegram-api-url
-                           {:accept :json :query-params (to-telegram-format-keys query-params)})]
+                           {:throw-exceptions? false
+                            :accept :json
+                            :query-params (to-telegram-format-keys query-params)})]
     (get-result payload-only response)))
 
 (defn get-updates
@@ -70,7 +72,8 @@
         multipart-data (if (and cert-file (.exists cert-file))
                          (conj partial-data {:name  "certificate" :content cert-file})
                          partial-data)
-        response (http/post telegram-api-url {:accept :json
+        response (http/post telegram-api-url {:throw-exceptions? false
+                                              :accept :json
                                               :multipart multipart-data})]
     (get-result payload-only response)))
 
