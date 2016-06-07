@@ -103,15 +103,3 @@
 (comment
   (do
     (def chat-id (Integer/parseInt (env :chat-id)))))
-
-
-
-
-
-
-
-
-
-
-
-
