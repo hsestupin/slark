@@ -114,10 +114,23 @@
       (is (= "Message to forward" (get-in message [:result :text]))))))
 
 (deftest send-photo-test
-  (testing "simple forward-message"
+  (testing "simple testing sending photo"
     (let [message (send-photo :token test-token
                               :chat-id (get-chat-id)
                               :disable-notification true
                               :photo "resources/cat.jpg")]
       (is (:ok message))
       (is (vector? (get-in message [:result :photo]))))))
+
+(deftest send-audio-test
+  (testing "simple test audio sending"
+    (let [message (send-audio :token test-token
+                              :chat-id (get-chat-id)
+                              :disable-notification true
+                              :audio "resources/bethoven.mp3"
+                              :duration 100)]
+      (is (:ok message))
+      (let [audio (get-in message [:result :audio])]
+        (is (= 100 (:duration audio)))
+        (is (= "audio/mpeg" (:mime-type audio)))
+        (is (= "A-M Classical" (:performer audio)))))))

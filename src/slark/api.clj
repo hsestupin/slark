@@ -128,25 +128,50 @@
       file
       file-or-string)))
 
+(defn- merge-multipart
+  [partial-data optional-params]
+  (reduce (fn [data [k v]]
+            (conj data {:name k :content (str v)}))
+          partial-data
+          optional-params))
+
 (defn send-photo
   "Use this method to send photos. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendphoto
 
   You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
-  [& {:keys [chat-id photo]
-      :as params}]
+  [& {:keys [chat-id photo] :as params}]
   (let [partial-data [{:name "chat_id" :content (str chat-id)}
                       {:name "photo" :content (as-input-file-or-string photo)}]
         optional-params (to-telegram-format-keys
                          (select-keys params
-                                      [:caption :disable-notification :reply-to-message-id :reply-markup]))
-        multipart-data
-        (reduce (fn [data [k v]] (conj data {:name k :content (str v)}))
-                partial-data
-                optional-params)]
+                                      [:caption
+                                       :disable-notification
+                                       :reply-to-message-id
+                                       :reply-markup]))
+        multipart-data (merge-multipart partial-data optional-params)]
     (do-post-request params multipart-data "/sendPhoto")))
+
+(defn send-audio
+  "Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned.
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id audio] :as params}]
+  (let [partial-data [{:name "chat_id" :content (str chat-id)}
+                      {:name "audio" :content (as-input-file-or-string audio)}]
+        optional-params (to-telegram-format-keys
+                         (select-keys params
+                                      [:duration
+                                       :performer
+                                       :title
+                                       :disable-notification
+                                       :reply-to-message-id
+                                       :reply-markup]))
+        multipart-data (merge-multipart partial-data optional-params)]
+    (do-post-request params multipart-data "/sendAudio")))
 
 
 ;; For debugging purposes
 (comment
   (do
     (def chat-id (Integer/parseInt (env :chat-id)))))
+
