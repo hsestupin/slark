@@ -152,7 +152,7 @@
     (do-post-request params multipart-data "/sendPhoto")))
 
 (defn send-audio
-  "Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned.
+  "Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendaudio
 
   You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
   [& {:keys [chat-id audio] :as params}]
@@ -168,6 +168,22 @@
                                        :reply-markup]))
         multipart-data (merge-multipart partial-data optional-params)]
     (do-post-request params multipart-data "/sendAudio")))
+
+(defn send-document
+  "Use this method to send general files. On success, the sent Message is returned. https://core.telegram.org/bots/api#senddocument
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id document] :as params}]
+  (let [partial-data [{:name "chat_id" :content (str chat-id)}
+                      {:name "document" :content (as-input-file-or-string document)}]
+        optional-params (to-telegram-format-keys
+                         (select-keys params
+                                      [:caption
+                                       :disable-notification
+                                       :reply-to-message-id
+                                       :reply-markup]))
+        multipart-data (merge-multipart partial-data optional-params)]
+    (do-post-request params multipart-data "/sendDocument")))
 
 
 ;; For debugging purposes
