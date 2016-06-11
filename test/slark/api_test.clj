@@ -134,3 +134,14 @@
         (is (= 100 (:duration audio)))
         (is (= "audio/mpeg" (:mime-type audio)))
         (is (= "A-M Classical" (:performer audio)))))))
+
+(deftest send-sticker-test
+  (testing "simple test sticker sending"
+    (let [message (send-sticker :token test-token
+                                :chat-id (get-chat-id)
+                                :disable-notification true
+                                :sticker "BQADAgADrwADCRdfAYkosIlx1dMuAg")]
+      (print message)
+      (is (:ok message))
+      (let [sticker (get-in message [:result :sticker])]
+        (is (= "BQADAgADrwADCRdfAYkosIlx1dMuAg" (:file-id sticker)))))))

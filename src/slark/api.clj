@@ -14,10 +14,10 @@
   "Recursively transforms all map keys to telegram format replacing '-' with '_'"
   [m]
   (let [to-telegram-format (fn [[k v]]
-                        [(-> k
-                             name
-                             (str/replace "-" "_"))
-                         v])]
+                             [(-> k
+                                  name
+                                  (str/replace "-" "_"))
+                              v])]
     (clojure.walk/postwalk (fn [x]
                              (if (map? x)
                                (into {} (map to-telegram-format x))
@@ -53,12 +53,14 @@
 
 (defn- do-post-request
   "Do a HTTP POST multipart/form-data request to a telegram bot API with specified url-suffix and multipart-data"
-  [{:keys [entire-response?] :as params} multipart-data url-suffix]
-  (let [telegram-api-url (build-telegram-api-url params url-suffix) 
+  [{:keys [entire-response?] :as params} url-suffix required-data optional-keys]
+  (let [optional-data (to-telegram-format-keys (select-keys params optional-keys))
+        multipart-data (merge-multipart required-data optional-data)
+        telegram-api-url (build-telegram-api-url params url-suffix) 
         response (http/post telegram-api-url
-                           {:throw-exceptions? false
-                            :accept :json
-                            :multipart multipart-data})]
+                            {:throw-exceptions? false
+                             :accept :json
+                             :multipart multipart-data})]
     (get-result entire-response? response)))
 
 (defn get-updates
@@ -86,7 +88,7 @@
         multipart-data (if (and cert-file (.exists cert-file))
                          (conj partial-data {:name  "certificate" :content cert-file})
                          partial-data)]
-    (do-post-request params multipart-data "/setWebhook")))
+    (do-post-request params "/setWebhook" multipart-data [])))
 
 (defn get-me
   "A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. https://core.telegram.org/bots/api#getme
@@ -129,10 +131,10 @@
       file-or-string)))
 
 (defn- merge-multipart
-  [partial-data optional-params]
+  [required-data optional-params]
   (reduce (fn [data [k v]]
             (conj data {:name k :content (str v)}))
-          partial-data
+          required-data
           optional-params))
 
 (defn send-photo
@@ -140,50 +142,53 @@
 
   You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
   [& {:keys [chat-id photo] :as params}]
-  (let [partial-data [{:name "chat_id" :content (str chat-id)}
-                      {:name "photo" :content (as-input-file-or-string photo)}]
-        optional-params (to-telegram-format-keys
-                         (select-keys params
-                                      [:caption
-                                       :disable-notification
-                                       :reply-to-message-id
-                                       :reply-markup]))
-        multipart-data (merge-multipart partial-data optional-params)]
-    (do-post-request params multipart-data "/sendPhoto")))
+  {:pre [(some? chat-id) (some? photo)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "photo" :content (as-input-file-or-string photo)}]]
+    (do-post-request params "/sendPhoto" required-data [:caption
+                                                        :disable-notification
+                                                        :reply-to-message-id
+                                                        :reply-markup])))
 
 (defn send-audio
   "Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendaudio
 
   You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
   [& {:keys [chat-id audio] :as params}]
-  (let [partial-data [{:name "chat_id" :content (str chat-id)}
-                      {:name "audio" :content (as-input-file-or-string audio)}]
-        optional-params (to-telegram-format-keys
-                         (select-keys params
-                                      [:duration
-                                       :performer
-                                       :title
-                                       :disable-notification
-                                       :reply-to-message-id
-                                       :reply-markup]))
-        multipart-data (merge-multipart partial-data optional-params)]
-    (do-post-request params multipart-data "/sendAudio")))
+  {:pre [(some? chat-id) (some? audio)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "audio" :content (as-input-file-or-string audio)}]]
+    (do-post-request params "/sendAudio" required-data [:duration
+                                                        :performer
+                                                        :title
+                                                        :disable-notification
+                                                        :reply-to-message-id
+                                                        :reply-markup])))
 
 (defn send-document
   "Use this method to send general files. On success, the sent Message is returned. https://core.telegram.org/bots/api#senddocument
 
   You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
   [& {:keys [chat-id document] :as params}]
-  (let [partial-data [{:name "chat_id" :content (str chat-id)}
-                      {:name "document" :content (as-input-file-or-string document)}]
-        optional-params (to-telegram-format-keys
-                         (select-keys params
-                                      [:caption
-                                       :disable-notification
-                                       :reply-to-message-id
-                                       :reply-markup]))
-        multipart-data (merge-multipart partial-data optional-params)]
-    (do-post-request params multipart-data "/sendDocument")))
+  {:pre [(some? chat-id) (some? document)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "document" :content (as-input-file-or-string document)}]]
+    (do-post-request params "/sendDocument" required-data [:caption
+                                                           :disable-notification
+                                                           :reply-to-message-id
+                                                           :reply-markup])))
+
+(defn send-sticker
+  "Use this method to send .webp stickers. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendsticker
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id sticker] :as params}]
+  {:pre [(some? chat-id) (some? sticker)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "sticker" :content (as-input-file-or-string sticker)}]]
+    (do-post-request params "/sendSticker" required-data [:disable-notification
+                                                          :reply-to-message-id
+                                                          :reply-markup])))
 
 
 ;; For debugging purposes
