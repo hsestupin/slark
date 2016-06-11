@@ -141,18 +141,27 @@
                                 :chat-id (get-chat-id)
                                 :disable-notification true
                                 :sticker "BQADAgADrwADCRdfAYkosIlx1dMuAg")]
-      (print message)
       (is (:ok message))
       (let [sticker (get-in message [:result :sticker])]
         (is (= "BQADAgADrwADCRdfAYkosIlx1dMuAg" (:file-id sticker)))))))
 
 (deftest send-video-test
-  (testing "simple test sticker sending"
+  (testing "simple test video sending"
     (let [message (send-video :token test-token
                               :chat-id (get-chat-id)
                               :disable-notification true
                               :video "resources/snow.mp4")]
-      (print message)
       (is (:ok message))
       (let [video (get-in message [:result :video])]
-        (print video)))))
+        (is (some? video))))))
+
+(deftest send-voice-test
+  (testing "simple test voice sending"
+    (let [message (send-voice :token test-token
+                              :chat-id (get-chat-id)
+                              :disable-notification true
+                              :voice "resources/bethoven.mp3"
+                              :duration 20)]
+      (is (:ok message))
+      (let [voice (get-in message [:result :voice])]
+        (is (= 20 (:duration voice)))))))

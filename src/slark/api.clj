@@ -208,6 +208,19 @@
                                                         :reply-markup])))
 
 
+(defn send-voice
+  "Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .ogg file encoded with OPUS (other formats may be sent as Audio or Document). On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvoice
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id voice] :as params}]
+  {:pre [(some? chat-id) (some? voice)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "voice" :content (as-input-file-or-string voice)}]]
+    (do-post-request params "/sendVoice" required-data [:duration
+                                                        :disable-notification
+                                                        :reply-to-message-id
+                                                        :reply-markup])))
+
 ;; For debugging purposes
 (comment
   (do
