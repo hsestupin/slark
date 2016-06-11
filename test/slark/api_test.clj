@@ -145,3 +145,14 @@
       (is (:ok message))
       (let [sticker (get-in message [:result :sticker])]
         (is (= "BQADAgADrwADCRdfAYkosIlx1dMuAg" (:file-id sticker)))))))
+
+(deftest send-video-test
+  (testing "simple test sticker sending"
+    (let [message (send-video :token test-token
+                              :chat-id (get-chat-id)
+                              :disable-notification true
+                              :video "resources/snow.mp4")]
+      (print message)
+      (is (:ok message))
+      (let [video (get-in message [:result :video])]
+        (print video)))))

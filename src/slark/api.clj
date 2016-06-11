@@ -51,6 +51,13 @@
                             :query-params (to-telegram-format-keys query-params)})]
     (get-result entire-response? response)))
 
+(defn- merge-multipart
+  [required-data optional-params]
+  (reduce (fn [data [k v]]
+            (conj data {:name k :content (str v)}))
+          required-data
+          optional-params))
+
 (defn- do-post-request
   "Do a HTTP POST multipart/form-data request to a telegram bot API with specified url-suffix and multipart-data"
   [{:keys [entire-response?] :as params} url-suffix required-data optional-keys]
@@ -130,13 +137,6 @@
       file
       file-or-string)))
 
-(defn- merge-multipart
-  [required-data optional-params]
-  (reduce (fn [data [k v]]
-            (conj data {:name k :content (str v)}))
-          required-data
-          optional-params))
-
 (defn send-photo
   "Use this method to send photos. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendphoto
 
@@ -189,6 +189,23 @@
     (do-post-request params "/sendSticker" required-data [:disable-notification
                                                           :reply-to-message-id
                                                           :reply-markup])))
+
+
+(defn send-video
+  "Use this method to send video files, Telegram clients support mp4 videos (other formats may be sent as Document). On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvideo
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id video] :as params}]
+  {:pre [(some? chat-id) (some? video)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "video" :content (as-input-file-or-string video)}]]
+    (do-post-request params "/sendVideo" required-data [:duration
+                                                        :width
+                                                        :height
+                                                        :caption
+                                                        :disable-notification
+                                                        :reply-to-message-id
+                                                        :reply-markup])))
 
 
 ;; For debugging purposes
