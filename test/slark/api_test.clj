@@ -165,3 +165,15 @@
       (is (:ok message))
       (let [voice (get-in message [:result :voice])]
         (is (= 20 (:duration voice)))))))
+
+(deftest send-location-test
+  (testing "simple test location sending"
+    (let [message (send-location :token test-token
+                                 :chat-id (get-chat-id)
+                                 :disable-notification true
+                                 :latitude 12.3
+                                 :longitude 125.23)]
+      (is (:ok message))
+      (let [location (get-in message [:result :location])]
+        (is (some? location))))))
+

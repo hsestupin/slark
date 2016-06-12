@@ -221,8 +221,20 @@
                                                         :reply-to-message-id
                                                         :reply-markup])))
 
+(defn send-location
+  "Use this method to send point on the map. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendlocation
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id latitude longitude] :as params}]
+  {:pre [(some? chat-id) (some? latitude) (some? longitude)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "latitude" :content (str latitude)}
+                       {:name "longitude" :content (str longitude)}]]
+    (do-post-request params "/sendLocation" required-data [:disable-notification
+                                                           :reply-to-message-id
+                                                           :reply-markup])))
+
 ;; For debugging purposes
 (comment
   (do
     (def chat-id (Integer/parseInt (env :chat-id)))))
-
