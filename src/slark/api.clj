@@ -6,6 +6,9 @@
             [clojure.java.io :as io]))
 
 (def base-url "https://api.telegram.org/bot")
+(def default-post-optional-keys #{:disable-notification
+                                  :reply-to-message-id
+                                  :reply-markup})
 
 (defn get-token []
   (env :telegram-bot-token))
@@ -60,15 +63,17 @@
 
 (defn- do-post-request
   "Do a HTTP POST multipart/form-data request to a telegram bot API with specified url-suffix and multipart-data"
-  [{:keys [entire-response?] :as params} url-suffix required-data optional-keys]
-  (let [optional-data (to-telegram-format-keys (select-keys params optional-keys))
-        multipart-data (merge-multipart required-data optional-data)
-        telegram-api-url (build-telegram-api-url params url-suffix) 
-        response (http/post telegram-api-url
-                            {:throw-exceptions? false
-                             :accept :json
-                             :multipart multipart-data})]
-    (get-result entire-response? response)))
+  ([params url-suffix required-data]
+   (do-post-request params url-suffix required-data default-post-optional-keys))
+  ([{:keys [entire-response?] :as params} url-suffix required-data optional-keys]
+   (let [optional-data (to-telegram-format-keys (select-keys params optional-keys))
+         multipart-data (merge-multipart required-data optional-data)
+         telegram-api-url (build-telegram-api-url params url-suffix) 
+         response (http/post telegram-api-url
+                             {:throw-exceptions? false
+                              :accept :json
+                              :multipart multipart-data})]
+     (get-result entire-response? response))))
 
 (defn get-updates
   "Receive updates from telegram Bot via long-polling. 
@@ -90,7 +95,7 @@
 
   You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
   [& {:keys [url certificate] :or {url ""} :as params}]
-  (let [cert-file (clojure.java.io/file certificate)
+  (let [cert-file (io/file certificate)
         partial-data [{:name "url" :content url}]
         multipart-data (if (and cert-file (.exists cert-file))
                          (conj partial-data {:name  "certificate" :content cert-file})
@@ -145,10 +150,8 @@
   {:pre [(some? chat-id) (some? photo)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "photo" :content (as-input-file-or-string photo)}]]
-    (do-post-request params "/sendPhoto" required-data [:caption
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))
+    (do-post-request params "/sendPhoto" required-data (conj default-post-optional-keys
+                                                             :caption))))
 
 (defn send-audio
   "Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendaudio
@@ -158,12 +161,10 @@
   {:pre [(some? chat-id) (some? audio)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "audio" :content (as-input-file-or-string audio)}]]
-    (do-post-request params "/sendAudio" required-data [:duration
-                                                        :performer
-                                                        :title
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))
+    (do-post-request params "/sendAudio" required-data (conj default-post-optional-keys
+                                                             :duration
+                                                             :performer
+                                                             :title))))
 
 (defn send-document
   "Use this method to send general files. On success, the sent Message is returned. https://core.telegram.org/bots/api#senddocument
@@ -173,10 +174,9 @@
   {:pre [(some? chat-id) (some? document)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "document" :content (as-input-file-or-string document)}]]
-    (do-post-request params "/sendDocument" required-data [:caption
-                                                           :disable-notification
-                                                           :reply-to-message-id
-                                                           :reply-markup])))
+    (do-post-request params "/sendDocument" required-data
+                     (conj default-post-optional-keys
+                           :caption))))
 
 (defn send-sticker
   "Use this method to send .webp stickers. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendsticker
@@ -186,9 +186,7 @@
   {:pre [(some? chat-id) (some? sticker)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "sticker" :content (as-input-file-or-string sticker)}]]
-    (do-post-request params "/sendSticker" required-data [:disable-notification
-                                                          :reply-to-message-id
-                                                          :reply-markup])))
+    (do-post-request params "/sendSticker" required-data)))
 
 
 (defn send-video
@@ -199,13 +197,11 @@
   {:pre [(some? chat-id) (some? video)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "video" :content (as-input-file-or-string video)}]]
-    (do-post-request params "/sendVideo" required-data [:duration
-                                                        :width
-                                                        :height
-                                                        :caption
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))
+    (do-post-request params "/sendVideo" required-data (conj default-post-optional-keys
+                                                             :duration
+                                                             :width
+                                                             :height
+                                                             :caption))))
 
 
 (defn send-voice
@@ -216,10 +212,8 @@
   {:pre [(some? chat-id) (some? voice)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "voice" :content (as-input-file-or-string voice)}]]
-    (do-post-request params "/sendVoice" required-data [:duration
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))
+    (do-post-request params "/sendVoice" required-data (conj default-post-optional-keys
+                                                             :duration))))
 
 (defn send-location
   "Use this method to send point on the map. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendlocation
@@ -230,9 +224,25 @@
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "latitude" :content (str latitude)}
                        {:name "longitude" :content (str longitude)}]]
-    (do-post-request params "/sendLocation" required-data [:disable-notification
-                                                           :reply-to-message-id
-                                                           :reply-markup])))
+    (do-post-request params "/sendLocation" required-data)))
+
+(defn send-venue
+  "Use this method to send information about a venue. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvenue
+
+  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments"
+  [& {:keys [chat-id latitude longitude title address] :as params}]
+  {:pre [(some? chat-id)
+         (some? latitude)
+         (some? longitude)
+         (some? title)
+         (some? address)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "latitude" :content (str latitude)}
+                       {:name "longitude" :content (str longitude)}
+                       {:name "title" :content (str title)}
+                       {:name "address" :content (str address)}]]
+    (do-post-request params "/sendVenue" required-data (conj default-post-optional-keys
+                                                             :foursquare-id))))
 
 ;; For debugging purposes
 (comment

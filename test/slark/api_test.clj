@@ -177,3 +177,16 @@
       (let [location (get-in message [:result :location])]
         (is (some? location))))))
 
+(deftest send-venue-test
+  (testing "simple test venue sending"
+    (let [message (send-venue :token test-token
+                              :chat-id (get-chat-id)
+                              :disable-notification true
+                              :latitude 58.23
+                              :longitude 98.03
+                              :title "Test venue"
+                              :address "Test street")]
+      (is (:ok message))
+      (let [venue (get-in message [:result :venue])]
+        (is (= "Test venue" (:title venue)))
+        (is (= "Test street" (:address venue)))))))
