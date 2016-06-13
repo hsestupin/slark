@@ -76,14 +76,15 @@
      (get-result entire-response? response))))
 
 (defn get-updates
-  "Receive updates from telegram Bot via long-polling. For more info look at https://core.telegram.org/bots/api#getupdates. 
+  "Receive updates from telegram Bot via long-polling. For more info look at [official doc](https://core.telegram.org/bots/api#getupdates).
 
   Supplied options:
-  :offset           - Identifier of the first update to be returned
-  :limit            - Limits the number of updates to be retrieved. Values between 1—100 are accepted. Defaults to 100
-  :timeout          - Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+
+ * :offset           - Identifier of the first update to be returned
+ * :limit            - Limits the number of updates to be retrieved. Values between 1—100 are accepted. Defaults to 100
+ * :timeout          - Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [& [options]]
   (let [query-params (merge {:timeout 1
                              :offset  0
@@ -92,13 +93,14 @@
     (do-get-request options query-params "/getUpdates")))
 
 (defn set-webhook
-  "Send setWebhook request to telegram API. For more detailed information look at https://core.telegram.org/bots/api#setwebhook. How to generate self-signed certificate - https://core.telegram.org/bots/self-signed 
+  "Send setWebhook request to telegram API. For more detailed information look at [official doc](https://core.telegram.org/bots/api#setwebhook). How to generate self-signed certificate - https://core.telegram.org/bots/self-signed 
 
   Supplied options:
-  :url - HTTPS url to send updates to. Use an empty string to remove webhook integration. Defaults to empty string
-  :certificate      - certificate file. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+
+ * :url - HTTPS url to send updates to. Use an empty string to remove webhook integration. Defaults to empty string
+ * :certificate      - certificate file. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [& [{:keys [url certificate] :or {url ""} :as options}]]
   (let [partial-data [{:name "url" :content url}]
         multipart-data (if certificate
@@ -107,23 +109,25 @@
     (do-post-request options "/setWebhook" multipart-data [])))
 
 (defn get-me
-  "A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. https://core.telegram.org/bots/api#getme
+  "A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. [official doc](https://core.telegram.org/bots/api#getme)
 
   Supplied options:
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [& [options]]
   (do-get-request options {} "/getMe"))
 
 (defn send-message
-  "Use this method to send text messages. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendmessage
+  "Use this method to send text messages. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendmessage)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  text              - Text of the message to be sent
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. text              - Text of the message to be sent
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id text & [options]]
   (let [optional-params (select-keys options [:parse-mode
                                               :disable-web-page-preview
@@ -134,15 +138,16 @@
     (do-get-request options query-params "/sendMessage")))
 
 (defn forward-message
-  "Use this method to forward messages of any kind. On success, the sent Message is returned. https://core.telegram.org/bots/api#forwardmessage
+  "Use this method to forward messages of any kind. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#forwardmessage)
   
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  from-chat-id      - Unique identifier for the chat where the original message was sent (or channel username in the format @channelusername)
-  message-id        - Unique message identifier
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. from-chat-id      - Unique identifier for the chat where the original message was sent (or channel username in the format @channelusername)
+ 3. message-id        - Unique message identifier
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id from-chat-id message-id & [options]]
   (let [optional-params (select-keys options [:disable-notification])
         query-params (merge {:chat-id chat-id
@@ -151,14 +156,15 @@
     (do-get-request options query-params "/forwardMessage")))
 
 (defn send-photo
-  "Use this method to send photos. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendphoto
+  "Use this method to send photos. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendphoto)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  photo             - Photo to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. photo             - Photo to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id photo & [options]]
   {:pre [(some? chat-id) (some? photo)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
@@ -167,15 +173,16 @@
                      (conj default-post-optional-keys :caption))))
 
 (defn send-audio
-  "Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendaudio
+  "Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendaudio)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  audio             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody  
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. audio             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody  
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
-  [chat-id audio options]
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+  [chat-id audio & [options]]
   {:pre [(some? chat-id) (some? audio)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
                        {:name "audio" :content audio}]]
@@ -185,14 +192,15 @@
                                                               :title))))
 
 (defn send-document
-  "Use this method to send general files. On success, the sent Message is returned. https://core.telegram.org/bots/api#senddocument
+  "Use this method to send general files. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#senddocument)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  documents         - File to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. documents         - File to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id document & [options]]
   {:pre [(some? chat-id) (some? document)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
@@ -201,14 +209,15 @@
                      (conj default-post-optional-keys :caption))))
 
 (defn send-sticker
-  "Use this method to send .webp stickers. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendsticker
+  "Use this method to send .webp stickers. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendsticker)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  sticker           - Sticker to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. sticker           - Sticker to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id sticker & [options]]
   {:pre [(some? chat-id) (some? sticker)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
@@ -217,14 +226,15 @@
 
 
 (defn send-video
-  "Use this method to send video files, Telegram clients support mp4 videos (other formats may be sent as Document). On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvideo
+  "Use this method to send video files, Telegram clients support mp4 videos (other formats may be sent as Document). On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendvideo)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  video             - Video to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. video             - Video to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id video & [options]]
   {:pre [(some? chat-id) (some? video)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
@@ -236,14 +246,15 @@
                                                               :caption))))
 
 (defn send-voice
-  "Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .ogg file encoded with OPUS (other formats may be sent as Audio or Document). On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvoice
+  "Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .ogg file encoded with OPUS (other formats may be sent as Audio or Document). On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendvoice)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  voice             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. voice             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id voice & [options]]
   {:pre [(some? chat-id) (some? voice)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
@@ -252,15 +263,16 @@
                                                               :duration))))
 
 (defn send-location
-  "Use this method to send point on the map. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendlocation
+  "Use this method to send point on the map. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendlocation)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  latitude          - Latitude of location. Float number
-  longitude         - Longitude of location. Float number
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. latitude          - Latitude of location. Float number
+ 3. longitude         - Longitude of location. Float number
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id latitude longitude & [options]]
   {:pre [(some? chat-id) (some? latitude) (some? longitude)]}
   (let [required-data [{:name "chat_id" :content (str chat-id)}
@@ -269,17 +281,18 @@
     (do-post-request options "/sendLocation" required-data)))
 
 (defn send-venue
-  "Use this method to send information about a venue. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvenue
+  "Use this method to send information about a venue. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendvenue)
 
-  chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
-  latitude          - Latitude of location. Float number
-  longitude         - Longitude of location. Float number
-  title             - Name of the venue
-  address           - Address of the venue
+ 1. chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+ 2. latitude          - Latitude of location. Float number
+ 3. longitude         - Longitude of location. Float number
+ 4. title             - Name of the venue
+ 5. address           - Address of the venue
 
-  Any other telegram args could be passed through options map. Moreover supplied options:  
-  :token            - bot token. Default value is taken via Environ library by key :telegram-bot-token
-  :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
+Any other telegram args could be passed through options map. Moreover supplied options:
+ 
+ * :token            - bot token. Default value is taken via [Environ](https://github.com/weavejester/environ) library by key :telegram-bot-token
+ * :entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false."
   [chat-id latitude longitude title address & [options]]
   {:pre [(some? chat-id)
          (some? latitude)
