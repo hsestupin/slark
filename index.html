@@ -2873,7 +2873,10 @@ net.brehaut.ClojureTools = (function (SH) {
             [clojure.data.json :as json]
             [clojure.string :as str]
             [clojure.java.io :as io]))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def base-url &quot;https://api.telegram.org/bot&quot;)</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(def base-url &quot;https://api.telegram.org/bot&quot;)
+(def default-post-optional-keys #{:disable-notification
+                                  :reply-to-message-id
+                                  :reply-markup})</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn get-token []
   (env :telegram-bot-token))</pre></td></tr><tr><td class="docs"><p>Recursively transforms all map keys to telegram format replacing '-' with '_'</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- to-telegram-format-keys
@@ -2889,7 +2892,7 @@ net.brehaut.ClojureTools = (function (SH) {
                                x))
                            m)))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn- build-telegram-api-url
-  [{:keys [token] :or {token (get-token)} :as params} url-suffix]
+  [{:keys [token] :or {token (get-token)}} url-suffix]
   (str base-url token url-suffix))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn extract-telegram-payload
   [response]
@@ -2903,8 +2906,8 @@ net.brehaut.ClojureTools = (function (SH) {
     response
     (extract-telegram-payload response)))</pre></td></tr><tr><td class="docs"><p>Do a HTTP GET request to a telegram bot API with specified url-suffix and query-params</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- do-get-request
-  [{:keys [entire-response?] :as params} query-params url-suffix]
-  (let [telegram-api-url (build-telegram-api-url params url-suffix) 
+  [{:keys [entire-response?] :as options} query-params url-suffix]
+  (let [telegram-api-url (build-telegram-api-url options url-suffix) 
         response (http/get telegram-api-url
                            {:throw-exceptions? false
                             :accept :json
@@ -2917,144 +2920,273 @@ net.brehaut.ClojureTools = (function (SH) {
           required-data
           optional-params))</pre></td></tr><tr><td class="docs"><p>Do a HTTP POST multipart/form-data request to a telegram bot API with specified url-suffix and multipart-data</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- do-post-request
-  [{:keys [entire-response?] :as params} url-suffix required-data optional-keys]
-  (let [optional-data (to-telegram-format-keys (select-keys params optional-keys))
-        multipart-data (merge-multipart required-data optional-data)
-        telegram-api-url (build-telegram-api-url params url-suffix) 
-        response (http/post telegram-api-url
-                            {:throw-exceptions? false
-                             :accept :json
-                             :multipart multipart-data})]
-    (get-result entire-response? response)))</pre></td></tr><tr><td class="docs"><p>Receive updates from telegram Bot via long-polling. 
-  Supported parameters: :timeout, :offset, :limit.</p>
+  ([options url-suffix required-data]
+   (do-post-request options url-suffix required-data default-post-optional-keys))
+  ([{:keys [entire-response?] :as options} url-suffix required-data optional-keys]
+   (let [optional-data (to-telegram-format-keys (select-keys options optional-keys))
+         multipart-data (merge-multipart required-data optional-data)
+         telegram-api-url (build-telegram-api-url options url-suffix) 
+         response (http/post telegram-api-url
+                             {:throw-exceptions? false
+                              :accept :json
+                              :multipart multipart-data})]
+     (get-result entire-response? response))))</pre></td></tr><tr><td class="docs"><p>Receive updates from telegram Bot via long-polling. For more info look at <a href="https://core.telegram.org/bots/api#getupdates">official doc</a>.</p>
 
-<p>  For more info look at https://core.telegram.org/bots/api#getupdates</p>
+<p>  Supplied options:</p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ul>
+<li>:offset           - Identifier of the first update to be returned</li>
+<li>:limit            - Limits the number of updates to be retrieved. Values between 1—100 are accepted. Defaults to 100</li>
+<li>:timeout          - Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling</li>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn get-updates
-  [&amp; {:as params}]
+  [&amp; [options]]
   (let [query-params (merge {:timeout 1
                              :offset  0
                              :limit   100}
-                            params)]
-    (do-get-request params query-params &quot;/getUpdates&quot;)))</pre></td></tr><tr><td class="docs"><p>Send setWebhook request to telegram API. For more detailed information look at https://core.telegram.org/bots/api#setwebhook.
-  How to generate self-signed certificate - https://core.telegram.org/bots/self-signed</p>
+                            options)]
+    (do-get-request options query-params &quot;/getUpdates&quot;)))</pre></td></tr><tr><td class="docs"><p>Send setWebhook request to telegram API. For more detailed information look at <a href="https://core.telegram.org/bots/api#setwebhook">official doc</a>. How to generate self-signed certificate - https://core.telegram.org/bots/self-signed </p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<p>  Supplied options:</p>
+
+<ul>
+<li>:url - HTTPS url to send updates to. Use an empty string to remove webhook integration. Defaults to empty string</li>
+<li>:certificate      - certificate file. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn set-webhook
-  [&amp; {:keys [url certificate] :or {url &quot;&quot;} :as params}]
-  (let [cert-file (clojure.java.io/file certificate)
-        partial-data [{:name &quot;url&quot; :content url}]
-        multipart-data (if (and cert-file (.exists cert-file))
-                         (conj partial-data {:name  &quot;certificate&quot; :content cert-file})
+  [&amp; [{:keys [url certificate] :or {url &quot;&quot;} :as options}]]
+  (let [partial-data [{:name &quot;url&quot; :content url}]
+        multipart-data (if certificate
+                         (conj partial-data {:name  &quot;certificate&quot; :content certificate})
                          partial-data)]
-    (do-post-request params &quot;/setWebhook&quot; multipart-data [])))</pre></td></tr><tr><td class="docs"><p>A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. https://core.telegram.org/bots/api#getme</p>
+    (do-post-request options &quot;/setWebhook&quot; multipart-data [])))</pre></td></tr><tr><td class="docs"><p>A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. <a href="https://core.telegram.org/bots/api#getme">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<p>  Supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn get-me
-  [&amp; {:as params}]
-  (do-get-request params {} &quot;/getMe&quot;))</pre></td></tr><tr><td class="docs"><p>Use this method to send text messages. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendmessage</p>
+  [&amp; [options]]
+  (do-get-request options {} &quot;/getMe&quot;))</pre></td></tr><tr><td class="docs"><p>Use this method to send text messages. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendmessage">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>text              - Text of the message to be sent</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-message
-  [&amp; {:as params}]
-  (let [query-params (select-keys params [:chat-id
-                                          :text
-                                          :parse-mode
-                                          :disable-web-page-preview
-                                          :disable-notification
-                                          :reply-to-message-id
-                                          :reply-markup])]
-    (do-get-request params query-params &quot;/sendMessage&quot;)))</pre></td></tr><tr><td class="docs"><p>Use this method to forward messages of any kind. On success, the sent Message is returned. https://core.telegram.org/bots/api#forwardmessage</p>
+  [chat-id text &amp; [options]]
+  (let [optional-params (select-keys options [:parse-mode
+                                              :disable-web-page-preview
+                                              :disable-notification
+                                              :reply-to-message-id
+                                              :reply-markup])
+        query-params (merge {:chat-id chat-id :text text} optional-params)]
+    (do-get-request options query-params &quot;/sendMessage&quot;)))</pre></td></tr><tr><td class="docs"><p>Use this method to forward messages of any kind. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#forwardmessage">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>from-chat-id      - Unique identifier for the chat where the original message was sent (or channel username in the format @channelusername)</li>
+<li>message-id        - Unique message identifier</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn forward-message
-  [&amp; {:as params}]
-  (let [query-params (select-keys params [:chat-id
-                                          :from-chat-id
-                                          :disable-notification
-                                          :message-id])]
-    (do-get-request params query-params &quot;/forwardMessage&quot;)))</pre></td></tr><tr><td class="docs"><p>Tries to cast argument to InputFile. Otherwise returns String</p>
-</td><td class="codes"><pre class="brush: clojure">(defn as-input-file-or-string
-  [file-or-string]
-  (let [file (io/file file-or-string)]
-    (if (and file (.exists file))
-      file
-      file-or-string)))</pre></td></tr><tr><td class="docs"><p>Use this method to send photos. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendphoto</p>
+  [chat-id from-chat-id message-id &amp; [options]]
+  (let [optional-params (select-keys options [:disable-notification])
+        query-params (merge {:chat-id chat-id
+                             :from-chat-id from-chat-id
+                             :message-id message-id} optional-params)]
+    (do-get-request options query-params &quot;/forwardMessage&quot;)))</pre></td></tr><tr><td class="docs"><p>Use this method to send photos. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendphoto">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>photo             - Photo to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-photo
-  [&amp; {:keys [chat-id photo] :as params}]
+  [chat-id photo &amp; [options]]
   {:pre [(some? chat-id) (some? photo)]}
   (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
-                       {:name &quot;photo&quot; :content (as-input-file-or-string photo)}]]
-    (do-post-request params &quot;/sendPhoto&quot; required-data [:caption
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))</pre></td></tr><tr><td class="docs"><p>Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendaudio</p>
+                       {:name &quot;photo&quot; :content photo}]]
+    (do-post-request options &quot;/sendPhoto&quot; required-data
+                     (conj default-post-optional-keys :caption))))</pre></td></tr><tr><td class="docs"><p>Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .mp3 format. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendaudio">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>audio             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody <br /></li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-audio
-  [&amp; {:keys [chat-id audio] :as params}]
+  [chat-id audio &amp; [options]]
   {:pre [(some? chat-id) (some? audio)]}
   (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
-                       {:name &quot;audio&quot; :content (as-input-file-or-string audio)}]]
-    (do-post-request params &quot;/sendAudio&quot; required-data [:duration
-                                                        :performer
-                                                        :title
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))</pre></td></tr><tr><td class="docs"><p>Use this method to send general files. On success, the sent Message is returned. https://core.telegram.org/bots/api#senddocument</p>
+                       {:name &quot;audio&quot; :content audio}]]
+    (do-post-request options &quot;/sendAudio&quot; required-data (conj default-post-optional-keys
+                                                              :duration
+                                                              :performer
+                                                              :title))))</pre></td></tr><tr><td class="docs"><p>Use this method to send general files. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#senddocument">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>documents         - File to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-document
-  [&amp; {:keys [chat-id document] :as params}]
+  [chat-id document &amp; [options]]
   {:pre [(some? chat-id) (some? document)]}
   (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
-                       {:name &quot;document&quot; :content (as-input-file-or-string document)}]]
-    (do-post-request params &quot;/sendDocument&quot; required-data [:caption
-                                                           :disable-notification
-                                                           :reply-to-message-id
-                                                           :reply-markup])))</pre></td></tr><tr><td class="docs"><p>Use this method to send .webp stickers. On success, the sent Message is returned. https://core.telegram.org/bots/api#sendsticker</p>
+                       {:name &quot;document&quot; :content document}]]
+    (do-post-request options &quot;/sendDocument&quot; required-data
+                     (conj default-post-optional-keys :caption))))</pre></td></tr><tr><td class="docs"><p>Use this method to send .webp stickers. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendsticker">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>sticker           - Sticker to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-sticker
-  [&amp; {:keys [chat-id sticker] :as params}]
+  [chat-id sticker &amp; [options]]
   {:pre [(some? chat-id) (some? sticker)]}
   (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
-                       {:name &quot;sticker&quot; :content (as-input-file-or-string sticker)}]]
-    (do-post-request params &quot;/sendSticker&quot; required-data [:disable-notification
-                                                          :reply-to-message-id
-                                                          :reply-markup])))</pre></td></tr><tr><td class="docs"><p>Use this method to send video files, Telegram clients support mp4 videos (other formats may be sent as Document). On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvideo</p>
+                       {:name &quot;sticker&quot; :content sticker}]]
+    (do-post-request options &quot;/sendSticker&quot; required-data)))</pre></td></tr><tr><td class="docs"><p>Use this method to send video files, Telegram clients support mp4 videos (other formats may be sent as Document). On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendvideo">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>video             - Video to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-video
-  [&amp; {:keys [chat-id video] :as params}]
+  [chat-id video &amp; [options]]
   {:pre [(some? chat-id) (some? video)]}
   (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
-                       {:name &quot;video&quot; :content (as-input-file-or-string video)}]]
-    (do-post-request params &quot;/sendVideo&quot; required-data [:duration
-                                                        :width
-                                                        :height
-                                                        :caption
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))</pre></td></tr><tr><td class="docs"><p>Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .ogg file encoded with OPUS (other formats may be sent as Audio or Document). On success, the sent Message is returned. https://core.telegram.org/bots/api#sendvoice</p>
+                       {:name &quot;video&quot; :content video}]]
+    (do-post-request options &quot;/sendVideo&quot; required-data (conj default-post-optional-keys
+                                                              :duration
+                                                              :width
+                                                              :height
+                                                              :caption))))</pre></td></tr><tr><td class="docs"><p>Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .ogg file encoded with OPUS (other formats may be sent as Audio or Document). On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendvoice">official doc</a></p>
 
-<p>  You might want to get entire http response but not only a telegram payload part - to extract an entire http response add 'entire-response? true' to arguments</p>
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>voice             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-voice
-  [&amp; {:keys [chat-id voice] :as params}]
+  [chat-id voice &amp; [options]]
   {:pre [(some? chat-id) (some? voice)]}
   (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
-                       {:name &quot;voice&quot; :content (as-input-file-or-string voice)}]]
-    (do-post-request params &quot;/sendVoice&quot; required-data [:duration
-                                                        :disable-notification
-                                                        :reply-to-message-id
-                                                        :reply-markup])))</pre></td></tr><tr><td class="docs"><p>For debugging purposes</p>
+                       {:name &quot;voice&quot; :content voice}]]
+    (do-post-request options &quot;/sendVoice&quot; required-data (conj default-post-optional-keys
+                                                              :duration))))</pre></td></tr><tr><td class="docs"><p>Use this method to send point on the map. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendlocation">official doc</a></p>
+
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>latitude          - Latitude of location. Float number</li>
+<li>longitude         - Longitude of location. Float number</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
+</td><td class="codes"><pre class="brush: clojure">(defn send-location
+  [chat-id latitude longitude &amp; [options]]
+  {:pre [(some? chat-id) (some? latitude) (some? longitude)]}
+  (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
+                       {:name &quot;latitude&quot; :content (str latitude)}
+                       {:name &quot;longitude&quot; :content (str longitude)}]]
+    (do-post-request options &quot;/sendLocation&quot; required-data)))</pre></td></tr><tr><td class="docs"><p>Use this method to send information about a venue. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendvenue">official doc</a></p>
+
+<ol>
+<li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>latitude          - Latitude of location. Float number</li>
+<li>longitude         - Longitude of location. Float number</li>
+<li>title             - Name of the venue</li>
+<li>address           - Address of the venue</li>
+</ol>
+
+<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
+
+<ul>
+<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
+<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+</ul>
+</td><td class="codes"><pre class="brush: clojure">(defn send-venue
+  [chat-id latitude longitude title address &amp; [options]]
+  {:pre [(some? chat-id)
+         (some? latitude)
+         (some? longitude)
+         (some? title)
+         (some? address)]}
+  (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
+                       {:name &quot;latitude&quot; :content (str latitude)}
+                       {:name &quot;longitude&quot; :content (str longitude)}
+                       {:name &quot;title&quot; :content (str title)}
+                       {:name &quot;address&quot; :content (str address)}]]
+    (do-post-request options &quot;/sendVenue&quot; required-data (conj default-post-optional-keys
+                                                              :foursquare-id))))</pre></td></tr><tr><td class="docs"><p>For debugging purposes</p>
 </td><td class="codes"><pre class="brush: clojure">(comment
   (do
     (def chat-id (Integer/parseInt (env :chat-id)))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.core" name="slark.core"><h1 class="project-name">slark.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(ns slark.core)</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(ns slark.core
+  (:use [environ.core :refer [env]]))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn create-handler
   [{:keys [message_id from chat date text] :as message}]
   (println (str (:first_name from) &quot;says&quot; text)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_slark.api">slark.api</li><li class="floating-toc-li" id="floating-toc_slark.core">slark.core</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
