@@ -29,14 +29,14 @@ You can find more examples in [tests](https://github.com/hsestupin/slark/blob/ma
 ## Dependency
 
 ```clojure
-[org.clojars.hsestupin/slark "0.0.1"]
+[org.clojars.hsestupin/slark "0.0.2"]
 ```
 
 ```xml
 <dependency>
   <groupId>org.clojars.hsestupin</groupId>
   <artifactId>slark</artifactId>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
 </dependency>
 ```
 

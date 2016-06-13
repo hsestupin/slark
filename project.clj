@@ -1,4 +1,4 @@
-(defproject org.clojars.hsestupin/slark "0.0.2-SNAPSHOT"
+(defproject org.clojars.hsestupin/slark "0.0.3"
   :description "Monitor your Telegram bot activity with ease"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
