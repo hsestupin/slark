@@ -2865,14 +2865,39 @@ net.brehaut.ClojureTools = (function (SH) {
     build_tree: build_tree
   };
 })(SyntaxHighlighter);
-</script><title>org.clojars.hsestupin/slark -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">org.clojars.hsestupin/slark</h1><h2 class="project-version">0.0.2-SNAPSHOT</h2><br /><p>Monitor your Telegram bot activity with ease</p>
+</script><title>org.clojars.hsestupin/slark -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">org.clojars.hsestupin/slark</h1><h2 class="project-version">0.0.3</h2><br /><p>Monitor your Telegram bot activity with ease</p>
 </div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.8.0</td></tr><tr><td class="dep-name">environ</td><td class="dotted"><hr /></td><td class="dep-version">1.0.3</td></tr><tr><td class="dep-name">clj-http</td><td class="dotted"><hr /></td><td class="dep-version">3.1.0</td></tr><tr><td class="dep-name">org.clojure/data.json</td><td class="dotted"><hr /></td><td class="dep-version">0.2.6</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#slark.api">slark.api</a></li><li><a href="#slark.core">slark.core</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.api" name="slark.api"><h1 class="project-name">slark.api</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(ns slark.api
   (:use [environ.core :refer [env]])
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
             [clojure.string :as str]
-            [clojure.java.io :as io]))</pre></td></tr><tr><td class="docs">
+            [clojure.java.io :as io]))</pre></td></tr><tr><td class="docs"><h1>API basics</h1>
+
+<p>All public API methods such as <code>get-updates</code>, <code>send-photo</code>, etc accepts a parameter called <code>options</code>. Basically it contains particular method's optional arguments according to <a href="https://core.telegram.org/bots/api">Telegram API</a>. But there are some additional options provided by Slark (all of the API methods support them):</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><ul>
+<li><code>:token</code>            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key <code>:telegram-bot-token</code></li>
+<li><code>:entire-response?</code> - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
+<li><code>:http-options</code>     - http options which is passed to <a href="https://github.com/dakrone/clj-http">clj-http</a> library. You can specify in this map any options which is supported by <a href="https://github.com/dakrone/clj-http">clj-http</a></li>
+<li><code>:dry-run?</code>         - if this options is enabled then no http requests are executed. Instead information about request is returned</li>
+</ul>
+</td><td class="codes"><pre class="brush: clojure">(comment
+  (send-message 1234 &quot;Hello world&quot;
+                {:token &quot;1234:ABCD&quot;
+                 :dry-run? true
+                 :entire-response? false
+                 :http-options {:retry-handler (fn [ex try-count http-context]
+                                                 (println &quot;Got:&quot; ex)
+                                                 (if (&gt; try-count 4) false true))}})
+
+  ;; returned value would contain just request information
+  {:throw-exceptions? false,
+   :accept :json,
+   :query-params {&quot;chat_id&quot; 1234, &quot;text&quot; &quot;Hello world&quot;},
+   :retry-handler &quot;#function[slark.api/eval23020/fn--23021]&quot;,
+   :method :get,
+   :url &quot;https://api.telegram.org/bot1234:ABCD/sendMessage&quot;}
+  )</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(def base-url &quot;https://api.telegram.org/bot&quot;)
 (def default-post-optional-keys #{:disable-notification
                                   :reply-to-message-id
@@ -2906,13 +2931,15 @@ net.brehaut.ClojureTools = (function (SH) {
     response
     (extract-telegram-payload response)))</pre></td></tr><tr><td class="docs"><p>Do a HTTP GET request to a telegram bot API with specified url-suffix and query-params</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- do-get-request
-  [{:keys [entire-response?] :as options} query-params url-suffix]
+  [{:keys [http-options entire-response? dry-run?] :as options} query-params url-suffix]
   (let [telegram-api-url (build-telegram-api-url options url-suffix) 
-        response (http/get telegram-api-url
-                           {:throw-exceptions? false
-                            :accept :json
-                            :query-params (to-telegram-format-keys query-params)})]
-    (get-result entire-response? response)))</pre></td></tr><tr><td class="docs">
+        request-options (merge {:throw-exceptions? false
+                                   :accept :json
+                                   :query-params (to-telegram-format-keys query-params)}
+                               http-options)]
+    (if dry-run?
+      (merge request-options {:method :get :url telegram-api-url})
+      (get-result entire-response? (http/get telegram-api-url request-options)))))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn- merge-multipart
   [required-data optional-params]
   (reduce (fn [data [k v]]
@@ -2922,15 +2949,17 @@ net.brehaut.ClojureTools = (function (SH) {
 </td><td class="codes"><pre class="brush: clojure">(defn- do-post-request
   ([options url-suffix required-data]
    (do-post-request options url-suffix required-data default-post-optional-keys))
-  ([{:keys [entire-response?] :as options} url-suffix required-data optional-keys]
+  ([{:keys [http-options entire-response? dry-run?] :as options} url-suffix required-data optional-keys]
    (let [optional-data (to-telegram-format-keys (select-keys options optional-keys))
          multipart-data (merge-multipart required-data optional-data)
          telegram-api-url (build-telegram-api-url options url-suffix) 
-         response (http/post telegram-api-url
-                             {:throw-exceptions? false
-                              :accept :json
-                              :multipart multipart-data})]
-     (get-result entire-response? response))))</pre></td></tr><tr><td class="docs"><p>Receive updates from telegram Bot via long-polling. For more info look at <a href="https://core.telegram.org/bots/api#getupdates">official doc</a>.</p>
+         request-options (merge {:throw-exceptions? false
+                                     :accept :json
+                                     :multipart multipart-data}
+                                    http-options)]
+     (if dry-run?
+       (merge request-options {:method :post :url telegram-api-url})
+       (get-result entire-response? (http/post telegram-api-url request-options))))))</pre></td></tr><tr><td class="docs"><p>Receive updates from telegram Bot via long-polling. For more info look at <a href="https://core.telegram.org/bots/api#getupdates">official doc</a>.</p>
 
 <p>  Supplied options:</p>
 
@@ -2938,8 +2967,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>:offset           - Identifier of the first update to be returned</li>
 <li>:limit            - Limits the number of updates to be retrieved. Values between 1—100 are accepted. Defaults to 100</li>
 <li>:timeout          - Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling</li>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
 </ul>
 </td><td class="codes"><pre class="brush: clojure">(defn get-updates
   [&amp; [options]]
@@ -2954,8 +2981,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <ul>
 <li>:url - HTTPS url to send updates to. Use an empty string to remove webhook integration. Defaults to empty string</li>
 <li>:certificate      - certificate file. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
 </ul>
 </td><td class="codes"><pre class="brush: clojure">(defn set-webhook
   [&amp; [{:keys [url certificate] :or {url &quot;&quot;} :as options}]]
@@ -2964,13 +2989,6 @@ net.brehaut.ClojureTools = (function (SH) {
                          (conj partial-data {:name  &quot;certificate&quot; :content certificate})
                          partial-data)]
     (do-post-request options &quot;/setWebhook&quot; multipart-data [])))</pre></td></tr><tr><td class="docs"><p>A simple method for testing your bot's auth token. Returns basic information about the bot in form of a User object. <a href="https://core.telegram.org/bots/api#getme">official doc</a></p>
-
-<p>  Supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn get-me
   [&amp; [options]]
   (do-get-request options {} &quot;/getMe&quot;))</pre></td></tr><tr><td class="docs"><p>Use this method to send text messages. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendmessage">official doc</a></p>
@@ -2979,13 +2997,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
 <li>text              - Text of the message to be sent</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-message
   [chat-id text &amp; [options]]
   (let [optional-params (select-keys options [:parse-mode
@@ -3001,13 +3012,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>from-chat-id      - Unique identifier for the chat where the original message was sent (or channel username in the format @channelusername)</li>
 <li>message-id        - Unique message identifier</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn forward-message
   [chat-id from-chat-id message-id &amp; [options]]
   (let [optional-params (select-keys options [:disable-notification])
@@ -3020,13 +3024,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
 <li>photo             - Photo to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-photo
   [chat-id photo &amp; [options]]
   {:pre [(some? chat-id) (some? photo)]}
@@ -3037,15 +3034,8 @@ net.brehaut.ClojureTools = (function (SH) {
 
 <ol>
 <li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
-<li>audio             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody <br /></li>
+<li>audio             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-audio
   [chat-id audio &amp; [options]]
   {:pre [(some? chat-id) (some? audio)]}
@@ -3058,15 +3048,8 @@ net.brehaut.ClojureTools = (function (SH) {
 
 <ol>
 <li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
-<li>documents         - File to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
+<li>document          - File to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-document
   [chat-id document &amp; [options]]
   {:pre [(some? chat-id) (some? document)]}
@@ -3079,13 +3062,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
 <li>sticker           - Sticker to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-sticker
   [chat-id sticker &amp; [options]]
   {:pre [(some? chat-id) (some? sticker)]}
@@ -3097,13 +3073,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
 <li>video             - Video to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-video
   [chat-id video &amp; [options]]
   {:pre [(some? chat-id) (some? video)]}
@@ -3119,13 +3088,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>chat-id           - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
 <li>voice             - Audio file to send. One of the following types - InputStream, File, a byte-array, or an instance of org.apache.http.entity.mime.content.ContentBody</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-voice
   [chat-id voice &amp; [options]]
   {:pre [(some? chat-id) (some? voice)]}
@@ -3139,13 +3101,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>latitude          - Latitude of location. Float number</li>
 <li>longitude         - Longitude of location. Float number</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-location
   [chat-id latitude longitude &amp; [options]]
   {:pre [(some? chat-id) (some? latitude) (some? longitude)]}
@@ -3161,13 +3116,6 @@ net.brehaut.ClojureTools = (function (SH) {
 <li>title             - Name of the venue</li>
 <li>address           - Address of the venue</li>
 </ol>
-
-<p>Any other telegram args could be passed through options map. Moreover supplied options:</p>
-
-<ul>
-<li>:token            - bot token. Default value is taken via <a href="https://github.com/weavejester/environ">Environ</a> library by key :telegram-bot-token</li>
-<li>:entire-response? - if you want to get entire http response but not only telegram useful payload part. Defaults to false.</li>
-</ul>
 </td><td class="codes"><pre class="brush: clojure">(defn send-venue
   [chat-id latitude longitude title address &amp; [options]]
   {:pre [(some? chat-id)
