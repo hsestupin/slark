@@ -1,9 +1,9 @@
 (ns slark.api
-  (:use [environ.core :refer [env]])
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [environ.core :refer :all]))
 
 ;; # API basics
 ;; All public API methods such as `get-updates`, `send-photo`, etc accepts a parameter called `options`. Basically it contains particular method's optional arguments according to [Telegram API](https://core.telegram.org/bots/api). But there are some additional options provided by Slark (all of the API methods support them):
@@ -38,13 +38,17 @@
 (defn get-token []
   (env :telegram-bot-token))
 
+(defn- to-telegram-format
+  [k]
+  (-> k
+      name
+      (str/replace "-" "_")))
+
 (defn- to-telegram-format-keys
   "Recursively transforms all map keys to telegram format replacing '-' with '_'"
   [m]
   (let [to-telegram-format (fn [[k v]]
-                             [(-> k
-                                  name
-                                  (str/replace "-" "_"))
+                             [(to-telegram-format k)
                               v])]
     (clojure.walk/postwalk (fn [x]
                              (if (map? x)
@@ -276,6 +280,36 @@
                        {:name "address" :content (str address)}]]
     (do-post-request options "/sendVenue" required-data (conj default-post-optional-keys
                                                               :foursquare-id))))
+
+(defn send-contact
+  "Use this method to send phone contacts. On success, the sent Message is returned. [official doc](https://core.telegram.org/bots/api#sendcontact)
+
+  1. chat-id      - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+  2. phone-number - Contact's phone number
+  3. first-name   - Contact's first name"
+  [chat-id phone-number first-name & [options]]
+  {:pre [(some? chat-id)
+         (some? phone-number)
+         (some? first-name)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "phone_number" :content (str phone-number)}
+                       {:name "first_name" :content (str first-name)}]]
+    (do-post-request options "/sendContact" required-data (conj default-post-optional-keys
+                                                              :last-name))))
+
+(defn send-chat-action
+  "Use this method when you need to tell the user that something is happening on the bot's side. The status is set for 5 seconds or less (when a message arrives from your bot, Telegram clients clear its typing status). [official doc](https://core.telegram.org/bots/api#sendchataction)
+
+  1. chat-id      - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+  2. action - Type of action to broadcast. Choose one, depending on what the user is about to receive: typing for text messages, upload_photo for photos, record_video or upload_video for videos, record_audio or upload_audio for audio files, upload_document for general files, find_location for location data. You can pass this argument as a clojure keyword like `:upload-photo`"
+  [chat-id action & [options]]
+  {:pre [(some? chat-id)
+         (some? action)]}
+  (let [required-data [{:name "chat_id" :content (str chat-id)}
+                       {:name "action" :content (if (keyword? action)
+                                                  (to-telegram-format action)
+                                                  (str action))}]]
+    (do-post-request options "/sendChatAction" required-data {})))
 
 ;; For debugging purposes
 (comment

@@ -147,3 +147,30 @@
       (let [venue (get-in message [:result :venue])]
         (is (= "Test venue" (:title venue)))
         (is (= "Test street" (:address venue)))))))
+
+(deftest send-contact-test
+  (testing "simple test contact sending"
+    (let [message (send-contact (get-chat-id) "1234567890" "Alex"
+                                test-options)]
+      (is (:ok message))
+      (let [contact (get-in message [:result :contact])]
+        (is (= "1234567890" (:phone-number contact)))
+        (is (= "Alex" (:first-name contact)))))))
+
+(deftest send-chat-action-test
+  (testing "expected error if undefined action was sent"
+    (let [message (send-chat-action (get-chat-id) "wrong-action"
+                                    test-options)]
+      (is (not (:ok message)))
+      (is (= 400 (:error-code message)))
+      (is (= "Bad Request: wrong parameter action in request" (:description message)))))
+
+  (testing "simple test chat action sending via string"
+    (let [message (send-chat-action (get-chat-id) "upload_photo"
+                                    test-options)]
+      (is (:ok message))))
+
+  (testing "simple test chat action sending via keyword"
+    (let [message (send-chat-action (get-chat-id) :record-audio
+                                    test-options)]
+      (is (:ok message)))))
