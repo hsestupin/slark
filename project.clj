@@ -5,4 +5,5 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [environ "1.0.3"]
                  [clj-http "3.1.0"]
-                 [org.clojure/data.json "0.2.6"]])
+                 [org.clojure/data.json "0.2.6"]
+                 [com.taoensso/timbre "4.4.0"]])
