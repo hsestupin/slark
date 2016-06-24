@@ -1,9 +1,6 @@
 (ns slark.core-test
   (:require [clojure.test :refer :all]
-            [slark.core :refer :all]
-            [slark.api :refer :all]
-            [environ.core :refer [env]]
-            [clojure.java.io :as io]))
+            [slark.core :refer :all]))
 
 (deftest bot-command?-test
   (testing "test bot-message?"
@@ -24,3 +21,4 @@
                    :text "/kuku me"
                    :entities [{:type "bot_command", :offset 0, :length 5}]}]
       (is (= "kuku" (get-command message))))))
+
