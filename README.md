@@ -1,8 +1,35 @@
 # slark
 
-A Clojure library which might help you to create telegram bots in clojure. [Generated docs](http://hsestupin.github.io/slark/)
+A Clojure library which might help you to create telegram bots in clojure. [Generated docs](http://hsestupin.github.io/slark/). *Slark* is an alpha quality software and also API may change in future.
 
-## Usage
+## Your first bot 
+
+Writing telegram bots should be as painful as possible. Here is a tiny snippent to give you an idea how easy to write bots with *Slark*:
+
+```clojure
+	(ns user
+	  (:require 
+		  [slark.api :refer :all]
+		  [slark.core :refer :all]))
+			
+	;; Bot reaction to a command is just a function with update argument.
+	(defn- echo
+      [update]
+      (let [message (get-message update)
+            chat-id (get-in message [:chat :id])
+            text (:text message)]
+        (send-message chat-id (str "Received '" text "'") {:token *your-token*})))
+    
+	;; Define bot handlers-map. So when user will type `/echo something` the function echo 
+	;; wil be invoked
+	(def handlers {"echo" echo})
+	
+	;; Start your bot. And that's it. f - is a clojure Future object. 
+	;; You can interrupt it with `(cancel-future f)`
+    (def f (start-handle-loop handlers))
+```
+
+## Telegram API usage
 
 Firstly you have to provide bot token. You can pass token manually:
 
@@ -37,7 +64,7 @@ You can find more examples in [tests](https://github.com/hsestupin/slark/blob/ma
 ## Dependency
 
 ```clojure
-[org.clojars.hsestupin/slark "0.0.2"]
+[org.clojars.hsestupin/slark "0.0.3"]
 ```
 
 ```xml

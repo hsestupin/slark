@@ -19,7 +19,7 @@
              (str/starts-with? text "/"))
     (first (.split (.substring text 1) " "))))
 
-(defn- get-message
+(defn get-message
   [update]
   (or (:message update) (:edited-message update)))
 
@@ -35,11 +35,10 @@
 
   1. handlers - map of bot command handlers
   2. optional map with following keys:
-  * `:max-handle-count`  - the maximum number of times to handle updates. After this limit exceeds go-loop will stop processing. Pass -1 for unlimited number of processing.
   * `:limit` - limit argument passed to `get-updates` calls. Defaults to 100.
   * `:timeout` - timeout argument passed to `get-updates` calls. Defaults to 1 seconds"
-  [handlers & [{:keys [timeout limit max-handle-count]
-                :or {:timout 1 :limit 100 :max-handle-count -1}}]]
+  [handlers & [{:keys [timeout limit]
+                :or {:timout 1 :limit 100}}]]
   (future (loop [update-id 0]
             (let [updates (:result (get-updates {:offset update-id
                                                  :timeout 1}))]
@@ -63,5 +62,5 @@
         (send-message chat-id (str "received '" text "'"))))
     (def handlers {"start" echo})
 
-    (def f (start-handle-loop handlers {:max-handle-count 3}))))
+    (def f (start-handle-loop handlers))))
 

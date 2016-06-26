@@ -58,13 +58,14 @@
 
 (defn- build-telegram-api-url
   [{:keys [token] :or {token (get-token)}} url-suffix]
+  {:pre [(some? token)]}
   (str base-url token url-suffix))
 
 (defn extract-telegram-payload
   [response]
   (-> response
       :body
-      ;; clojurify response keys. Write chat-id instead of chat_id 
+      ;; clojurify response keys. Write :chat-id instead of chat_id 
       (json/read-str :key-fn #(keyword (str/replace % "_" "-")))))
 
 (defn- get-result
