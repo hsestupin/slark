@@ -2866,13 +2866,13 @@ net.brehaut.ClojureTools = (function (SH) {
   };
 })(SyntaxHighlighter);
 </script><title>org.clojars.hsestupin/slark -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">org.clojars.hsestupin/slark</h1><h2 class="project-version">0.0.3</h2><br /><p>Monitor your Telegram bot activity with ease</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.8.0</td></tr><tr><td class="dep-name">environ</td><td class="dotted"><hr /></td><td class="dep-version">1.0.3</td></tr><tr><td class="dep-name">clj-http</td><td class="dotted"><hr /></td><td class="dep-version">3.1.0</td></tr><tr><td class="dep-name">org.clojure/data.json</td><td class="dotted"><hr /></td><td class="dep-version">0.2.6</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#slark.api">slark.api</a></li><li><a href="#slark.core">slark.core</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.api" name="slark.api"><h1 class="project-name">slark.api</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.8.0</td></tr><tr><td class="dep-name">environ</td><td class="dotted"><hr /></td><td class="dep-version">1.0.3</td></tr><tr><td class="dep-name">clj-http</td><td class="dotted"><hr /></td><td class="dep-version">3.1.0</td></tr><tr><td class="dep-name">org.clojure/data.json</td><td class="dotted"><hr /></td><td class="dep-version">0.2.6</td></tr><tr><td class="dep-name">com.taoensso/timbre</td><td class="dotted"><hr /></td><td class="dep-version">4.4.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#slark.api">slark.api</a></li><li><a href="#slark.core">slark.core</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.api" name="slark.api"><h1 class="project-name">slark.api</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(ns slark.api
-  (:use [environ.core :refer [env]])
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.java.io :as io]))</pre></td></tr><tr><td class="docs"><h1>API basics</h1>
+            [environ.core :refer :all]))</pre></td></tr><tr><td class="docs"><h1>API basics</h1>
 
 <p>All public API methods such as <code>get-updates</code>, <code>send-photo</code>, etc accepts a parameter called <code>options</code>. Basically it contains particular method's optional arguments according to <a href="https://core.telegram.org/bots/api">Telegram API</a>. But there are some additional options provided by Slark (all of the API methods support them):</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><ul>
@@ -2903,13 +2903,16 @@ net.brehaut.ClojureTools = (function (SH) {
                                   :reply-to-message-id
                                   :reply-markup})</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn get-token []
-  (env :telegram-bot-token))</pre></td></tr><tr><td class="docs"><p>Recursively transforms all map keys to telegram format replacing '-' with '_'</p>
+  (env :telegram-bot-token))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn- to-telegram-format
+  [k]
+  (-&gt; k
+      name
+      (str/replace &quot;-&quot; &quot;_&quot;)))</pre></td></tr><tr><td class="docs"><p>Recursively transforms all map keys to telegram format replacing '-' with '_'</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- to-telegram-format-keys
   [m]
   (let [to-telegram-format (fn [[k v]]
-                             [(-&gt; k
-                                  name
-                                  (str/replace &quot;-&quot; &quot;_&quot;))
+                             [(to-telegram-format k)
                               v])]
     (clojure.walk/postwalk (fn [x]
                              (if (map? x)
@@ -2918,12 +2921,13 @@ net.brehaut.ClojureTools = (function (SH) {
                            m)))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn- build-telegram-api-url
   [{:keys [token] :or {token (get-token)}} url-suffix]
+  {:pre [(some? token)]}
   (str base-url token url-suffix))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn extract-telegram-payload
   [response]
   (-&gt; response
       :body
-      ;; clojurify response keys. Write chat-id instead of chat_id 
+      ;; clojurify response keys. Write :chat-id instead of chat_id 
       (json/read-str :key-fn #(keyword (str/replace % &quot;_&quot; &quot;-&quot;)))))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn- get-result
   [entire-response? response]
@@ -3129,15 +3133,97 @@ net.brehaut.ClojureTools = (function (SH) {
                        {:name &quot;title&quot; :content (str title)}
                        {:name &quot;address&quot; :content (str address)}]]
     (do-post-request options &quot;/sendVenue&quot; required-data (conj default-post-optional-keys
-                                                              :foursquare-id))))</pre></td></tr><tr><td class="docs"><p>For debugging purposes</p>
+                                                              :foursquare-id))))</pre></td></tr><tr><td class="docs"><p>Use this method to send phone contacts. On success, the sent Message is returned. <a href="https://core.telegram.org/bots/api#sendcontact">official doc</a></p>
+
+<ol>
+<li>chat-id      - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>phone-number - Contact's phone number</li>
+<li>first-name   - Contact's first name</li>
+</ol>
+</td><td class="codes"><pre class="brush: clojure">(defn send-contact
+  [chat-id phone-number first-name &amp; [options]]
+  {:pre [(some? chat-id)
+         (some? phone-number)
+         (some? first-name)]}
+  (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
+                       {:name &quot;phone_number&quot; :content (str phone-number)}
+                       {:name &quot;first_name&quot; :content (str first-name)}]]
+    (do-post-request options &quot;/sendContact&quot; required-data (conj default-post-optional-keys
+                                                              :last-name))))</pre></td></tr><tr><td class="docs"><p>Use this method when you need to tell the user that something is happening on the bot's side. The status is set for 5 seconds or less (when a message arrives from your bot, Telegram clients clear its typing status). <a href="https://core.telegram.org/bots/api#sendchataction">official doc</a></p>
+
+<ol>
+<li>chat-id      - Unique identifier for the target chat or username of the target channel (in the format @channelusername)</li>
+<li>action - Type of action to broadcast. Choose one, depending on what the user is about to receive: typing for text messages, upload<em>photo for photos, record</em>video or upload<em>video for videos, record</em>audio or upload<em>audio for audio files, upload</em>document for general files, find_location for location data. You can pass this argument as a clojure keyword like <code>:upload-photo</code></li>
+</ol>
+</td><td class="codes"><pre class="brush: clojure">(defn send-chat-action
+  [chat-id action &amp; [options]]
+  {:pre [(some? chat-id)
+         (some? action)]}
+  (let [required-data [{:name &quot;chat_id&quot; :content (str chat-id)}
+                       {:name &quot;action&quot; :content (if (keyword? action)
+                                                  (to-telegram-format action)
+                                                  (str action))}]]
+    (do-post-request options &quot;/sendChatAction&quot; required-data {})))</pre></td></tr><tr><td class="docs"><p>For debugging purposes</p>
 </td><td class="codes"><pre class="brush: clojure">(comment
   (do
     (def chat-id (Integer/parseInt (env :chat-id)))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.core" name="slark.core"><h1 class="project-name">slark.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(ns slark.core
-  (:use [environ.core :refer [env]]))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn create-handler
-  [{:keys [message_id from chat date text] :as message}]
-  (println (str (:first_name from) &quot;says&quot; text)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_slark.api">slark.api</li><li class="floating-toc-li" id="floating-toc_slark.core">slark.core</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+  (:require [clojure.string :as str]
+            [environ.core :refer :all]
+            [slark.api :refer :all]
+            [taoensso.timbre :as timbre
+             :refer (log  trace  debug  info  warn  error  fatal  report
+                          logf tracef debugf infof warnf errorf fatalf reportf
+                          spy get-env log-env)]))</pre></td></tr><tr><td class="docs"><p>True if this update represents a bot command. Otherwise false</p>
+</td><td class="codes"><pre class="brush: clojure">(defn bot-command?
+  [{:keys [entities]}]
+  (filterv  #(= (:type %)) &quot;bot_command&quot;))</pre></td></tr><tr><td class="docs"><p>Returns corresponding handler to message if it's a bot like message which looks like <code>/hi ...</code>. Otherwise returns nil.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn get-command
+  [{:keys [text] :as message}]
+  (when (and (bot-command? message)
+             (str/starts-with? text &quot;/&quot;))
+    (first (.split (.substring text 1) &quot; &quot;))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn get-message
+  [update]
+  (or (:message update) (:edited-message update)))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn handle-update [handlers update]
+  (let [message (get-message update)]
+    (when-let [command (get-command message)]
+      (when-let [handler (handlers command)]
+        (debug &quot;Update&quot; (:update-id update) &quot;will be handled by&quot; command)
+        (handler update)))))</pre></td></tr><tr><td class="docs"><p>Method starts a new thread with a loop process which will handle incoming updates from chats. Returns future.</p>
+
+<ol>
+<li>handlers - map of bot command handlers</li>
+<li>optional map with following keys:</li>
+<li><code>:limit</code> - limit argument passed to <code>get-updates</code> calls. Defaults to 100.</li>
+<li><code>:timeout</code> - timeout argument passed to <code>get-updates</code> calls. Defaults to 1 seconds</li>
+</ol>
+</td><td class="codes"><pre class="brush: clojure">(defn start-handle-loop
+  [handlers &amp; [{:keys [timeout limit]
+                :or {:timout 1 :limit 100}}]]
+  (future (loop [update-id 0]
+            (let [updates (:result (get-updates {:offset update-id
+                                                 :timeout 1}))]
+              (if (empty? updates)
+                (recur update-id)
+                (let [updates-ids (mapv (fn [update]
+                                          (debug &quot;Handle update:\n&quot; update)
+                                          (handle-update handlers update)
+                                          (:update-id update))
+                                        updates)]
+                  (recur (inc (apply max updates-ids)))))))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(comment
+  (do
+    (defn- echo
+      [update]
+      (let [message (get-message update)
+            chat-id (get-in message [:chat :id])
+            text (:text message)]
+        (info &quot;sending message to&quot; chat-id)
+        (send-message chat-id (str &quot;received '&quot; text &quot;'&quot;))))
+    (def handlers {&quot;start&quot; echo})
+    (def f (start-handle-loop handlers))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_slark.api">slark.api</li><li class="floating-toc-li" id="floating-toc_slark.core">slark.core</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
 SyntaxHighlighter.all();
 
 // hackity hack
