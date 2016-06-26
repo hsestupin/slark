@@ -1,6 +1,6 @@
 # slark
 
-A Clojure library which might help you to create telegram bots in clojure. [Generated docs](http://hsestupin.github.io/slark/). *Slark** is an alpha quality software and also API may change in future.
+A Clojure library which might help you to create telegram bots in clojure. [Generated docs](http://hsestupin.github.io/slark/). **Slark** is an alpha quality software and also API may change in future.
 
 ## Your first bot 
 
