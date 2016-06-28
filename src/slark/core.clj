@@ -23,33 +23,48 @@
   [update]
   (or (:message update) (:edited-message update)))
 
-(defn handle-update [handlers update]
-  (let [message (get-message update)]
-    (when-let [command (get-command message)]
-      (when-let [handler (handlers command)]
+(defn handle-update [handlers update state]
+  (let [message (get-message update)
+        command (get-command message)
+        handler (handlers command)]
+    (if handler
+      (do
         (debug "Update" (:update-id update) "will be handled by" command)
-        (handler update)))))
+        (handler update state))
+      state)))
+
+(defn handle-updates
+  "Sequentially calls all handlers if one is defined updating state and returning
+new state and max update-id as a result"
+  [handlers updates current-state]
+  (loop [rest-updates updates
+         state current-state
+         max-id 0]
+    (let [update (first rest-updates)]
+      (when (nil? update)
+        [max-id state])
+      (recur (rest rest-updates)
+             (handle-update handlers update state)
+             (max max-id (:update-id update))))))
 
 (defn start-handle-loop
   "Method starts a new thread with a loop process which will handle incoming updates from chats. Returns future.
 
   1. handlers - map of bot command handlers
   2. optional map with following keys:
-  * `:limit` - limit argument passed to `get-updates` calls. Defaults to 100.
-  * `:timeout` - timeout argument passed to `get-updates` calls. Defaults to 1 seconds"
-  [handlers & [{:keys [timeout limit]
-                :or {:timout 1 :limit 100}}]]
-  (future (loop [update-id 0]
-            (let [updates (:result (get-updates {:offset update-id
-                                                 :timeout 1}))]
-              (if (empty? updates)
-                (recur update-id)
-                (let [updates-ids (mapv (fn [update]
-                                          (debug "Handle update:\n" update)
-                                          (handle-update handlers update)
-                                          (:update-id update))
-                                        updates)]
-                  (recur (inc (apply max updates-ids)))))))))
+  * `:limit`   - limit argument passed to `get-updates` calls. Defaults to 100.
+  * `:timeout` - timeout argument passed to `get-updates` calls. Defaults to 1 seconds
+  * `:init-state`   - bot initial state. Defaults to empty map."
+  [handlers & [{:keys [timeout limit init-state]
+                :or {:timout 1 :limit 100 :init-state {}}}]]
+  (let [state-atom (atom state)]
+    (future (loop [update-id 0 state init-state]
+              (let [updates (:result (get-updates {:offset update-id
+                                                   :timeout 1}))]
+                (when (.isInterrupted (Thread/currentThread))
+                  (throw (new InterruptedException)))
+                (let [[max-id new-state] (handle-updates handlers updates)]
+                  (recur (inc max-id) (swap! state-atom (identity new-state)))))))))
 
 (comment
   (do
