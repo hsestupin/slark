@@ -1,9 +1,9 @@
-(ns slark.telegram-api-test
+(ns slark.telegram-test
   (:require [clojure.java.io :as io]
             [clojure.test :refer :all]
             [environ.core :refer [env]]
             [slark :refer :all]
-            [slark.telegram-api :refer :all]))
+            [slark.telegram :refer :all]))
 
 (def ^:const bot-id 161840425)
 (def ^:const message-id 45)

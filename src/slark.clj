@@ -1,7 +1,7 @@
 (ns slark
   (:require [clojure.string :as str]
             [environ.core :refer :all]
-            [slark.api :refer :all]
+            [slark.telegram :refer :all]
             [taoensso.timbre :as timbre
              :refer (log  trace  debug  info  warn  error  fatal  report
                           logf tracef debugf infof warnf errorf fatalf reportf
