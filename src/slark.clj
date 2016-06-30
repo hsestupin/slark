@@ -5,19 +5,18 @@
             [taoensso.timbre :as timbre
              :refer (log  trace  debug  info  warn  error  fatal  report
                           logf tracef debugf infof warnf errorf fatalf reportf
-                          spy get-env log-env)]))
+                          spy get-env log-env)]
+            [clojure.core.async :as async :refer (go go-loop chan <! <!! >! >!! onto-chan)]))
 
 (defn bot-command?
   "True if this update represents a bot command. Otherwise false"
   [{:keys [entities]}]
-  (filterv  #(= (:type %)) "bot_command"))
+  (not-empty (filterv  #(= (:type %) "bot_command") entities)))
 
 (defn get-command
   "Returns corresponding handler to message if it's a bot like message which looks like `/hi ...`. Otherwise returns nil."
   [{:keys [text] :as message}]
-  (when (and message
-             (bot-command? message)
-             (str/starts-with? text "/"))
+  (when (bot-command? message)
     (first (.split (.substring text 1) " "))))
 
 (defn get-message
@@ -61,7 +60,7 @@ new state and max update-id as a result"
   * `:timeout` - timeout argument passed to `get-updates` calls. Defaults to 1 seconds
   * `:init-state`   - bot initial state. Defaults to empty map."
   [handlers & [{:keys [timeout limit init-state]
-                :or {:timout 1 :limit 100 :init-state {}}}]]
+                :or {:timeout 1 :limit 100 :init-state {}}}]]
   (let [state-atom (atom init-state)]
     (future (loop [update-id 0 state init-state]
               (let [updates (:result (get-updates {:offset update-id
@@ -70,6 +69,26 @@ new state and max update-id as a result"
                   (throw (new InterruptedException)))
                 (let [[max-id new-state] (handle-updates handlers updates state)]
                   (recur (inc max-id) new-state)))))))
+
+(defn updates-chan
+  "Creates new channel of telegram updates obtained via `get-updates` long-polling mechanism. 
+Accept options for `get-updates` - `:limit` and `:timeout`. Also there are additional optional arguments: 
+
+  * :chan-fn         - function which creates channel
+  * :initial-offset  - first offset to begin getting updates with"
+  [& [{:keys [chan-fn initial-offset]
+       :or {chan-fn #(chan 10)
+            initial-offset 0
+            limit 100
+            timeout 1}
+       :as opts}]]
+  (let [ch (chan-fn)]
+    (go-loop [offset initial-offset]
+      (let [updates (:result (get-updates (conj (select-keys opts [:timeout :limit])
+                                                [:offset offset])))]
+        (onto-chan ch updates false)
+        (recur (reduce max offset (map :update-id updates)))))
+    ch))
 
 (comment
   (do
@@ -83,4 +102,3 @@ new state and max update-id as a result"
     (def handlers {"start" (stateless-handler echo)})
 
     (def f (start-handle-loop handlers))))
-

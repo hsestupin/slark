@@ -10,7 +10,14 @@
                    :date 1466715331
                    :text "/kuku me"
                    :entities [{:type "bot_command", :offset 0, :length 5}]}]
-      (is (bot-command? message)))))
+      (is (bot-command? message))))
+  (testing "test not a bot command"
+    (let [message {:message-id 23,
+                   :from {:id 1234, :first-name "Sergey", :last-name "Stupin"}
+                   :chat {:id 1234, :first-name "Sergey", :last-name "Stupin", :type "private"}
+                   :date 1466715331
+                   :text "/kuku me"}]
+      (is (not (bot-command? message))))))
 
 (deftest get-command-test
   (testing "test bot-message?"

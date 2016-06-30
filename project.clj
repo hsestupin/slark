@@ -6,4 +6,5 @@
                  [environ "1.0.3"]
                  [clj-http "3.1.0"]
                  [org.clojure/data.json "0.2.6"]
-                 [com.taoensso/timbre "4.4.0"]])
+                 [com.taoensso/timbre "4.4.0"]
+                 [org.clojure/core.async "0.2.385"]])
