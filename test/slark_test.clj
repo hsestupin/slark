@@ -1,6 +1,6 @@
-(ns slark.core-test
+(ns slark-test
   (:require [clojure.test :refer :all]
-            [slark.core :refer :all]))
+            [slark :refer :all]))
 
 (deftest bot-command?-test
   (testing "test bot-message?"
@@ -22,3 +22,11 @@
                    :entities [{:type "bot_command", :offset 0, :length 5}]}]
       (is (= "kuku" (get-command message))))))
 
+(defn new-udpate
+  "Creates new test update"
+  []
+  {:update-id 5546354, :message {:message-id 108, :from {:id 19883246, :first-name "Sergey", :last-name "Stupin"}, :chat {:id 19883246, :first-name "Sergey", :last-name "Stupin", :type "private"}, :date 1467149444, :text "/ лгл г"}})
+
+
+(deftest handle-updates-test
+  (testing ""))

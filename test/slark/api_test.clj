@@ -1,9 +1,9 @@
 (ns slark.api-test
-  (:require [clojure.test :refer :all]
-            [slark.core :refer :all]
-            [slark.api :refer :all]
+  (:require [clojure.java.io :as io]
+            [clojure.test :refer :all]
             [environ.core :refer [env]]
-            [clojure.java.io :as io]))
+            [slark :refer :all]
+            [slark.api :refer :all]))
 
 (def ^:const bot-id 161840425)
 (def ^:const message-id 45)

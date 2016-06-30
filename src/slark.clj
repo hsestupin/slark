@@ -1,4 +1,4 @@
-(ns slark.core
+(ns slark
   (:require [clojure.string :as str]
             [environ.core :refer :all]
             [slark.api :refer :all]
@@ -15,7 +15,8 @@
 (defn get-command
   "Returns corresponding handler to message if it's a bot like message which looks like `/hi ...`. Otherwise returns nil."
   [{:keys [text] :as message}]
-  (when (and (bot-command? message)
+  (when (and message
+             (bot-command? message)
              (str/starts-with? text "/"))
     (first (.split (.substring text 1) " "))))
 
@@ -37,15 +38,19 @@
   "Sequentially calls all handlers if one is defined updating state and returning
 new state and max update-id as a result"
   [handlers updates current-state]
-  (loop [rest-updates updates
-         state current-state
-         max-id 0]
-    (let [update (first rest-updates)]
-      (when (nil? update)
-        [max-id state])
-      (recur (rest rest-updates)
-             (handle-update handlers update state)
-             (max max-id (:update-id update))))))
+  (letfn [(apply-looking-for-max-id
+            [[max-id state] update]
+            [(max max-id (:update-id update))
+             (handle-update handlers update state)])]
+    (reduce apply-looking-for-max-id [0 current-state] updates)))
+
+(defn stateless-handler
+  "Creates new function which leaves current bot state unchanged and calls `f` with an update as argument. `f` should accept just 1 argument - telegram update."
+  [f]
+  (fn [update state]
+    (f update)
+    state))
+
 
 (defn start-handle-loop
   "Method starts a new thread with a loop process which will handle incoming updates from chats. Returns future.
@@ -57,14 +62,14 @@ new state and max update-id as a result"
   * `:init-state`   - bot initial state. Defaults to empty map."
   [handlers & [{:keys [timeout limit init-state]
                 :or {:timout 1 :limit 100 :init-state {}}}]]
-  (let [state-atom (atom state)]
+  (let [state-atom (atom init-state)]
     (future (loop [update-id 0 state init-state]
               (let [updates (:result (get-updates {:offset update-id
                                                    :timeout 1}))]
                 (when (.isInterrupted (Thread/currentThread))
                   (throw (new InterruptedException)))
-                (let [[max-id new-state] (handle-updates handlers updates)]
-                  (recur (inc max-id) (swap! state-atom (identity new-state)))))))))
+                (let [[max-id new-state] (handle-updates handlers updates state)]
+                  (recur (inc max-id) new-state)))))))
 
 (comment
   (do
@@ -75,7 +80,7 @@ new state and max update-id as a result"
             text (:text message)]
         (info "sending message to" chat-id)
         (send-message chat-id (str "received '" text "'"))))
-    (def handlers {"start" echo})
+    (def handlers {"start" (stateless-handler echo)})
 
     (def f (start-handle-loop handlers))))
 
