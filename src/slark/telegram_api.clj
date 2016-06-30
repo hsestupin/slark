@@ -1,4 +1,4 @@
-(ns slark.api
+(ns slark.telegram-api
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
