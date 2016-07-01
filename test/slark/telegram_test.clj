@@ -2,7 +2,6 @@
   (:require [clojure.java.io :as io]
             [clojure.test :refer :all]
             [environ.core :refer [env]]
-            [slark :refer :all]
             [slark.telegram :refer :all]))
 
 (def ^:const bot-id 161840425)
