@@ -6,7 +6,8 @@
              :refer (log  trace  debug  info  warn  error  fatal  report
                           logf tracef debugf infof warnf errorf fatalf reportf
                           spy get-env log-env)]
-            [clojure.core.async :as async :refer (go go-loop chan <! <!! >! >!! onto-chan)]))
+            [clojure.core.async :as async :refer
+             (close! put! poll! go go-loop chan <! <!! >! >!! onto-chan)]))
 
 (defn bot-command?
   "True if this update represents a bot command. Otherwise false"
@@ -70,25 +71,31 @@ new state and max update-id as a result"
                 (let [[max-id new-state] (handle-updates handlers updates state)]
                   (recur (inc max-id) new-state)))))))
 
-(defn updates-chan
-  "Creates new channel of telegram updates obtained via `get-updates` long-polling mechanism. 
-Accept options for `get-updates` - `:limit` and `:timeout`. Also there are additional optional arguments: 
+(defn updates-onto-chan
+  "Puts telegram updates obtained via `get-updates` long-polling mechanism into the supplied channel with `>!`. Also returns a function which will stop go-loop when called.
+Accept options for `get-updates` - `:limit` and `:timeout`. Also there are additional optional arguments: * :initial-offset  - first offset to begin getting updates with. 
 
-  * :chan-fn         - function which creates channel
-  * :initial-offset  - first offset to begin getting updates with"
-  [& [{:keys [chan-fn initial-offset]
-       :or {chan-fn #(chan 10)
-            initial-offset 0
-            limit 100
-            timeout 1}
-       :as opts}]]
-  (let [ch (chan-fn)]
+  By default the supplied channel will be closed after bad response got or returned stop-fn will be invoked manually, but can be determined by the :close? parameter."
+  [ch & [{:keys [initial-offset close?]
+          :or {initial-offset 0
+               close? true}
+          :as opts}]]
+  (let [stop-ch (chan)]
     (go-loop [offset initial-offset]
-      (let [updates (:result (get-updates (conj (select-keys opts [:timeout :limit])
-                                                [:offset offset])))]
-        (onto-chan ch updates false)
-        (recur (reduce max offset (map :update-id updates)))))
-    ch))
+      (let [response (get-updates (conj (select-keys opts [:timeout :limit])
+                                        [:offset offset]))]
+        (if (and (:ok response) (nil? (poll! stop-ch)))
+          (let [updates (:result response)]
+            (onto-chan ch updates false)
+            (recur (reduce max offset
+                           (mapv #(->> %
+                                       :update-id
+                                       inc)
+                                 updates))))
+          (when close?
+            (close! ch)))))
+    (fn stop! []
+      (put! stop-ch :stop))))
 
 (comment
   (do
