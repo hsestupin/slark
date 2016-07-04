@@ -4,15 +4,16 @@ A Clojure library which might help you to create telegram bots in clojure. [Gene
 
 ## Your first bot 
 
-Writing telegram bots should be as painful as possible. Here is a tiny snippent to give you an idea how easy to write bots with **Slark**:
+Writing telegram bots should be as painful as possible. 
+Here is a tiny snippent to give you an idea how easy to write bots with **Slark** and **core.async**:
 
 ```clojure
 (ns user
   (:require [slark :refer :all]
             [slark.telegram :refer :all]))
 
-;; Here we define our command handler which accepts an Update as argument. Notice it's just a simple function
-
+;; Here we define our command handler which accepts an Update as argument. 
+;; Notice it's just a simple plain function
 (defn- echo
   [update]
   (let [message (get-message update)
@@ -22,7 +23,8 @@ Writing telegram bots should be as painful as possible. Here is a tiny snippent 
 
 ;; Create **core.async** channel which will take telegram updates. 
 ;; Originally without any transducer being applied this channel will transmit update batches like:
-;;{:ok true,
+(comment
+{:ok true,
  :result
  [{:update-id 5546450,
    :message
@@ -36,6 +38,8 @@ Writing telegram bots should be as painful as possible. Here is a tiny snippent 
     :date 1467668230,
     :text "/echo hi,",
     :entities [{:type "bot_command,", :offset 0, :length 5}]}}]}
+    )
+    
 (def c (chan 1 (comp 
 				;; ignore empty update results
                 (filter (comp not-empty :result))
@@ -44,16 +48,19 @@ Writing telegram bots should be as painful as possible. Here is a tiny snippent 
 				;; push updates one by one to channel instead of an array
 				;; (look at docs https://core.telegram.org/bots/api#getupdates)
                 cat
-				;; command-handling function is part of the Slark API. It creates fully functionl clojure transducer
+				;; command-handling function is part of the Slark API. 
+				;;It creates fully functionl clojure transducer
                 (command-handling "echo" echo))))
 				
-;; Notice how we just applied clojure transducers to our channel. Here is an excellent introduction to transducers http://elbenshira.com/blog/understanding-transducers/ 
+;; Notice how we just applied clojure transducers to our channel. 
+;; Here is an excellent introduction to transducers http://elbenshira.com/blog/understanding-transducers/ 
 
-;; updates-onto-chan - it's a very thin layer of Telegram native API.
+;; updates-onto-chan - it's a very thin layer on top of Telegram native API.
 ;; To stop processing telegram updates - just call `(terminate)`.
 (def terminate (updates-onto-chan c))
 
-;; to make sure that channel's buffer's limit will not be exceeded we have to take values from channel 
+;; to make sure that channel's buffer's limit will not be exceeded 
+;; we have to take values from channel 
 (go-loop [update (<! c)]
   (when update
     (do (println "Update" (:update-id update) "processed")
@@ -66,11 +73,11 @@ That's it! Now you can type **/echo hello world** in your chat with bot and rece
 Firstly you have to provide bot token. You can pass token manually:
 
 ```clojure
-user> (require '[slark.api :as a])
+user> (require '[slark.telegram :as t])
 nil
 user> (def chat-id 1234)
 #'user/chat-id
-user> (a/send-message chat-id "hello-world" {:token "1234:ABCD"})
+user> (t/send-message chat-id "hello-world" {:token "1234:ABCD"})
 {:ok true, :result {:message-id 19, :from {:id 737373, :first-name "bot-name", :username "some_bot_name"}, :chat {:id 1234, :first-name "Sergey", :last-name "Stupin", :type "private"}, :date 1465858266, :text "hello-world"}}
 ```
 
@@ -83,15 +90,15 @@ If token is not provided manually then token will be obtained via [Environ](http
 and then you can send message to chat like this:
 
 ```clojure
-user> (require '[slark.api :as a])
+user> (require '[slark.telegram :as t])
 nil
 user> (def chat-id 1234)
 #'user/chat-id
-user> (a/send-message chat-id "hello-world")
+user> (t/send-message chat-id "hello-world")
 {:ok true, :result {:message-id 19, :from {:id 737373, :first-name "bot-name", :username "some_bot_name"}, :chat {:id 1234, :first-name "Sergey", :last-name "Stupin", :type "private"}, :date 1465858266, :text "hello-world"}}
 ```
 
-You can find more examples in [tests](https://github.com/hsestupin/slark/blob/master/test/slark/api_test.clj).
+You can find more examples in [tests](https://github.com/hsestupin/slark/blob/master/test/slark/telegram_test.clj).
 
 ## Dependency
 
