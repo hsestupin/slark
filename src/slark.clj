@@ -34,42 +34,13 @@
         (handler update state))
       state)))
 
-(defn handle-updates
-  "Sequentially calls all handlers if one is defined updating state and returning
-new state and max update-id as a result"
-  [handlers updates current-state]
-  (letfn [(apply-looking-for-max-id
-            [[max-id state] update]
-            [(max max-id (:update-id update))
-             (handle-update handlers update state)])]
-    (reduce apply-looking-for-max-id [0 current-state] updates)))
+(defn- get-updates-async
+  "Async execute get-udpates function because it might utilize blocking IO."
+  [get-updates-fn offset]
+  (let [result-ch (chan 0)]
+    (go (>! result-ch (get-updates-fn offset)))
+    result-ch))
 
-(defn stateless-handler
-  "Creates new function which leaves current bot state unchanged and calls `f` with an update as argument. `f` should accept just 1 argument - telegram update."
-  [f]
-  (fn [update state]
-    (f update)
-    state))
-
-
-(defn start-handle-loop
-  "Method starts a new thread with a loop process which will handle incoming updates from chats. Returns future.
-
-  1. handlers - map of bot command handlers
-  2. optional map with following keys:
-  * `:limit`   - limit argument passed to `get-updates` calls. Defaults to 100.
-  * `:timeout` - timeout argument passed to `get-updates` calls. Defaults to 1 seconds
-  * `:init-state`   - bot initial state. Defaults to empty map."
-  [handlers & [{:keys [timeout limit init-state]
-                :or {:timeout 1 :limit 100 :init-state {}}}]]
-  (let [state-atom (atom init-state)]
-    (future (loop [update-id 0 state init-state]
-              (let [updates (:result (get-updates {:offset update-id
-                                                   :timeout 1}))]
-                (when (.isInterrupted (Thread/currentThread))
-                  (throw (new InterruptedException)))
-                (let [[max-id new-state] (handle-updates handlers updates state)]
-                  (recur (inc max-id) new-state)))))))
 
 (defn updates-onto-chan
   "Puts telegram updates obtained via `:get-updates-fn` into the supplied channel with `>!`. Also returns a function which will terminate go-loop when called. 
@@ -78,10 +49,10 @@ new state and max update-id as a result"
   
   Also there are additional optional arguments: `:initial-offset`  - first offset to begin getting updates with. 
 
-  By default the supplied channel will be closed after bad http response got or returned terminate-fn will be called manually, but can be determined by the `:close?` parameter."
+  By default the supplied channel will not be closed after telegram error or termination request, but it can be determined by the `:close?` parameter."
   [ch & [{:keys [initial-offset close? get-updates-fn]
           :or {initial-offset 0
-               close? true
+               close? false
                get-updates-fn (fn [offset]
                                 (get-updates {:offset offset}))}
           :as opts}]]
@@ -89,24 +60,42 @@ new state and max update-id as a result"
         close-ch-fn (fn [] (when close?
                              (close! ch)))]
     (go-loop [offset initial-offset]
-      (let [response (get-updates-fn offset)]
-        (if (and (:ok response) (nil? (poll! terminate-ch)))
-          (let [telegram-updates (:result response)
-                terminated? (loop [updates telegram-updates]
-                              (if-let [update (first updates)]
-                                (do
-                                  (let [update-status (alt!
-                                                        [[ch update]] :update-delivered
-                                                        terminate-ch :terminate-received)]
-                                    (if (= update-status :update-delivered)
-                                      (recur (next updates))
-                                      true)))))]
-            (if (not terminated?)
-              (recur (reduce max offset (mapv (comp inc :update-id) telegram-updates)))
-              (close-ch-fn)))
-          (close-ch-fn))))
+      (debug "Trying to get-udpates with offset" offset)
+      (let [get-updates-ch (get-updates-async get-updates-fn offset)]
+        (alt!
+          terminate-ch
+          (do
+            (warn "Termination request") (close-ch-fn))
+          get-updates-ch
+          ([{:keys [ok result] :as response}]
+           (alt!
+             [[ch response]]
+             (if ok
+               (recur (reduce max offset
+                              (mapv (comp inc :update-id) result)))
+               (do
+                 (warn "Telegram error" response)
+                 (close-ch-fn)))
+             terminate-ch
+             (do
+               (warn "Termination request") (close-ch-fn)))
+           ))))
     (fn terminate! []
       (put! terminate-ch :terminate))))
+
+(defn command-handling
+  "Creates transducer which handles supplied `command` updates. Second argument is a function which takes an Update map. "
+  [command handler]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([result] (rf result))
+      ([result update]
+       (let [message (get-message update)]
+         (when (and (bot-command? message)
+                    (= command (get-command message)))
+           (handler update))
+         (rf result update))))))
 
 (comment
   (do
@@ -115,10 +104,16 @@ new state and max update-id as a result"
       (let [message (get-message update)
             chat-id (get-in message [:chat :id])
             text (:text message)]
-        (info "sending message to" chat-id)
         (send-message chat-id (str "received '" text "'"))))
 
-    (def handlers {"start" (stateless-handler echo)})
+    (def c (chan 1 (comp
+                    (filter (comp not-empty :result))
+                    (map #(do (println %) (:result %)))
+                    cat
+                    (command-handling "echo" echo))))
+    (def terminate (updates-onto-chan c))
 
-    (def updates-ch (chan 2))
-    (def terminate (updates-onto-chan updates-ch))))
+    (go-loop [update (<! c)]
+      (when update
+        (do (info "Update" (:update-id update) "processed")
+            (recur (<! c)))))))

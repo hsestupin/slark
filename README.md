@@ -8,24 +8,58 @@ Writing telegram bots should be as painful as possible. Here is a tiny snippent 
 
 ```clojure
 (ns user
-  (:require [slark.api :refer :all]
-            [slark.core :refer :all]))
-			
-;; Bot reaction to a command is just a function with update argument.
-(defn- echo [update]
+  (:require [slark :refer :all]
+            [slark.telegram :refer :all]))
+
+;; Here we define our command handler which accepts an Update as argument. Notice it's just a simple function
+
+(defn- echo
+  [update]
   (let [message (get-message update)
         chat-id (get-in message [:chat :id])
         text (:text message)]
-  (send-message chat-id (str "Received '" text "'") {:token *your-token*})))
-    
-;; Define bot handlers-map. So when user will type `/echo something` the function echo 
-;; wil be invoked
-(def handlers {"echo" echo})
-	
-;; Start your bot. And that's it. f - is a clojure Future object. 
-;; You can interrupt it with `(cancel-future f)`
-(def f (start-handle-loop handlers))
+    (send-message chat-id (str "received '" text "'"))))
+
+;; Create **core.async** channel which will take telegram updates. 
+;; Originally without any transducer being applied this channel will transmit update batches like:
+;;{:ok true,
+ :result
+ [{:update-id 5546450,
+   :message
+   {:message-id 207,
+    :from {:id 1234, :first-name "Sergey,", :last-name "Stupin"},
+    :chat
+    {:id 1234,
+     :first-name "Sergey,",
+     :last-name "Stupin,",
+     :type "private"},
+    :date 1467668230,
+    :text "/echo hi,",
+    :entities [{:type "bot_command,", :offset 0, :length 5}]}}]}
+(def c (chan 1 (comp 
+				;; ignore empty update results
+                (filter (comp not-empty :result))
+				;; just print for fun
+                (map #(do (println %) (:result %)))
+				;; push updates one by one to channel instead of an array
+				;; (look at docs https://core.telegram.org/bots/api#getupdates)
+                cat
+				;; command-handling function is part of the Slark API. It creates fully functionl clojure transducer
+                (command-handling "echo" echo))))
+				
+;; Notice how we just applied clojure transducers to our channel. Here is an excellent introduction to transducers http://elbenshira.com/blog/understanding-transducers/ 
+
+;; updates-onto-chan - it's a very thin layer of Telegram native API.
+;; To stop processing telegram updates - just call `(terminate)`.
+(def terminate (updates-onto-chan c))
+
+;; to make sure that channel's buffer's limit will not be exceeded we have to take values from channel 
+(go-loop [update (<! c)]
+  (when update
+    (do (println "Update" (:update-id update) "processed")
+        (recur (<! c)))))
 ```
+That's it! Now you can type **/echo hello world** in your chat with bot and receive echo answer.
 
 ## Telegram API usage
 
