@@ -69,7 +69,9 @@
     (fn [offset]
       (let [first-update (first @remained)]
         (swap! remained next)
-        {:ok true :result (into [] [first-update])}))))
+        (if first-update
+          {:ok true :result (into [] [first-update])}
+          {:ok true :result :end})))))
 
 (deftest updates-onto-chan-test
   (testing "Mechanism of push new updates onto a supplied channel."
@@ -79,24 +81,11 @@
             terminate (updates-onto-chan updates {:get-updates-fn get-updates-fn})]
         (dotimes [n 3]
           (let [[val ch] (alts!! [updates (timeout 100)])]
-            (is (:update-id val))))
-        (is (nil? (poll! updates)))
+            (is (= ch updates) "expect update from updates channel")
+            (is (:ok val))
+            (is (:update-id (first (:result val))))))
         (terminate)))
 
-    (testing "offset increments"
-      (let [updates (chan 1)
-            telegram-updates-ch (chan 1)
-            last-offset (atom 0)
-            get-updates-fn (fn get-updates-fn [offset]
-                             (reset! last-offset offset)
-                             {:ok true :result [(<!! telegram-updates-ch)]})
-            terminate (updates-onto-chan updates {:get-updates-fn get-updates-fn})]
-        (is (= 0 @last-offset))
-        (>!! telegram-updates-ch (gen-update 10))
-        (<!! updates)
-        (is (= 11 @last-offset))
-        (terminate)))
-    
     (testing "get-updates-fn shouldn't be called while go-loop parking on pushing onto channel"
       (let [updates (chan 1)
             telegram-updates-ch (chan 1)
@@ -107,7 +96,11 @@
           (is (offer! telegram-updates-ch update) "simulate new update from telegram")
           (let [[val ch] (alts!! [updates (timeout 100)])]
             (is (= ch updates) "expect update from updates channel")
-            (is (= (:update-id update) (:update-id val)))))
+            (is (= (:update-id update) (->
+                                        val
+                                        :result
+                                        first
+                                        :update-id)))))
         (is (offer! telegram-updates-ch (gen-update))
             "simulate new update again. Fill `updates` buffer")
         (is (offer! telegram-updates-ch (gen-update))
