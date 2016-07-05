@@ -2865,9 +2865,9 @@ net.brehaut.ClojureTools = (function (SH) {
     build_tree: build_tree
   };
 })(SyntaxHighlighter);
-</script><title>org.clojars.hsestupin/slark -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">org.clojars.hsestupin/slark</h1><h2 class="project-version">0.0.3</h2><br /><p>Monitor your Telegram bot activity with ease</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.8.0</td></tr><tr><td class="dep-name">environ</td><td class="dotted"><hr /></td><td class="dep-version">1.0.3</td></tr><tr><td class="dep-name">clj-http</td><td class="dotted"><hr /></td><td class="dep-version">3.1.0</td></tr><tr><td class="dep-name">org.clojure/data.json</td><td class="dotted"><hr /></td><td class="dep-version">0.2.6</td></tr><tr><td class="dep-name">com.taoensso/timbre</td><td class="dotted"><hr /></td><td class="dep-version">4.4.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#slark.api">slark.api</a></li><li><a href="#slark.core">slark.core</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.api" name="slark.api"><h1 class="project-name">slark.api</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(ns slark.api
+</script><title>org.clojars.hsestupin/slark -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">org.clojars.hsestupin/slark</h1><h2 class="project-version">0.0.5</h2><br /><p>Monitor your Telegram bot activity with ease</p>
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.8.0</td></tr><tr><td class="dep-name">environ</td><td class="dotted"><hr /></td><td class="dep-version">1.0.3</td></tr><tr><td class="dep-name">clj-http</td><td class="dotted"><hr /></td><td class="dep-version">3.1.0</td></tr><tr><td class="dep-name">org.clojure/data.json</td><td class="dotted"><hr /></td><td class="dep-version">0.2.6</td></tr><tr><td class="dep-name">com.taoensso/timbre</td><td class="dotted"><hr /></td><td class="dep-version">4.4.0</td></tr><tr><td class="dep-name">org.clojure/core.async</td><td class="dotted"><hr /></td><td class="dep-version">0.2.385</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#slark.telegram">slark.telegram</a></li><li><a href="#slark">slark</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.telegram" name="slark.telegram"><h1 class="project-name">slark.telegram</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(ns slark.telegram
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
@@ -3166,53 +3166,91 @@ net.brehaut.ClojureTools = (function (SH) {
     (do-post-request options &quot;/sendChatAction&quot; required-data {})))</pre></td></tr><tr><td class="docs"><p>For debugging purposes</p>
 </td><td class="codes"><pre class="brush: clojure">(comment
   (do
-    (def chat-id (Integer/parseInt (env :chat-id)))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark.core" name="slark.core"><h1 class="project-name">slark.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(ns slark.core
+    (def chat-id (Integer/parseInt (env :chat-id)))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#slark" name="slark"><h1 class="project-name">slark</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(ns slark
   (:require [clojure.string :as str]
             [environ.core :refer :all]
-            [slark.api :refer :all]
+            [slark.telegram :refer :all]
             [taoensso.timbre :as timbre
              :refer (log  trace  debug  info  warn  error  fatal  report
                           logf tracef debugf infof warnf errorf fatalf reportf
-                          spy get-env log-env)]))</pre></td></tr><tr><td class="docs"><p>True if this update represents a bot command. Otherwise false</p>
+                          spy get-env log-env)]
+            [clojure.core.async :as async :refer
+             (close! put! poll! go go-loop chan &lt;! &lt;!! &gt;! &gt;!! alt! alts! alt!! alts!!)]))</pre></td></tr><tr><td class="docs"><p>True if this update represents a bot command. Otherwise false</p>
 </td><td class="codes"><pre class="brush: clojure">(defn bot-command?
   [{:keys [entities]}]
-  (filterv  #(= (:type %)) &quot;bot_command&quot;))</pre></td></tr><tr><td class="docs"><p>Returns corresponding handler to message if it's a bot like message which looks like <code>/hi ...</code>. Otherwise returns nil.</p>
+  (not-empty (filterv  #(= (:type %) &quot;bot_command&quot;) entities)))</pre></td></tr><tr><td class="docs"><p>Returns corresponding handler to message if it's a bot like message which looks like <code>/hi ...</code>. Otherwise returns nil.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn get-command
   [{:keys [text] :as message}]
-  (when (and (bot-command? message)
-             (str/starts-with? text &quot;/&quot;))
+  (when (bot-command? message)
     (first (.split (.substring text 1) &quot; &quot;))))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn get-message
   [update]
   (or (:message update) (:edited-message update)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn handle-update [handlers update]
-  (let [message (get-message update)]
-    (when-let [command (get-command message)]
-      (when-let [handler (handlers command)]
+</td><td class="codes"><pre class="brush: clojure">(defn handle-update [handlers update state]
+  (let [message (get-message update)
+        command (get-command message)
+        handler (handlers command)]
+    (if handler
+      (do
         (debug &quot;Update&quot; (:update-id update) &quot;will be handled by&quot; command)
-        (handler update)))))</pre></td></tr><tr><td class="docs"><p>Method starts a new thread with a loop process which will handle incoming updates from chats. Returns future.</p>
+        (handler update state))
+      state)))</pre></td></tr><tr><td class="docs"><p>Async execute get-udpates function because it might utilize blocking IO.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- get-updates-async
+  [get-updates-fn offset]
+  (let [result-ch (chan 0)]
+    (go (&gt;! result-ch (get-updates-fn offset)))
+    result-ch))</pre></td></tr><tr><td class="docs"><p>Puts telegram updates obtained via <code>:get-updates-fn</code> into the supplied channel with <code>&gt;!</code>. Also returns a function which will terminate go-loop when called. </p>
 
-<ol>
-<li>handlers - map of bot command handlers</li>
-<li>optional map with following keys:</li>
-<li><code>:limit</code> - limit argument passed to <code>get-updates</code> calls. Defaults to 100.</li>
-<li><code>:timeout</code> - timeout argument passed to <code>get-updates</code> calls. Defaults to 1 seconds</li>
-</ol>
-</td><td class="codes"><pre class="brush: clojure">(defn start-handle-loop
-  [handlers &amp; [{:keys [timeout limit]
-                :or {:timout 1 :limit 100}}]]
-  (future (loop [update-id 0]
-            (let [updates (:result (get-updates {:offset update-id
-                                                 :timeout 1}))]
-              (if (empty? updates)
-                (recur update-id)
-                (let [updates-ids (mapv (fn [update]
-                                          (debug &quot;Handle update:\n&quot; update)
-                                          (handle-update handlers update)
-                                          (:update-id update))
-                                        updates)]
-                  (recur (inc (apply max updates-ids)))))))))</pre></td></tr><tr><td class="docs">
+<p>  Supplied <code>:get-updates-fn</code> is a 1 argument function which is called with current update offset. By default it just delegates getting updates to <code>(get-updates {:offset offset})</code>. <code>:get-updates-fn</code> will not be called unless go-loop is parking trying to push update to channel with <code>&gt;!</code> </p>
+
+<p>  Also there are additional optional arguments: <code>:initial-offset</code>  - first offset to begin getting updates with. </p>
+
+<p>  By default the supplied channel will not be closed after telegram error or termination request, but it can be determined by the <code>:close?</code> parameter.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn updates-onto-chan
+  [ch &amp; [{:keys [initial-offset close? get-updates-fn]
+          :or {initial-offset 0
+               close? false
+               get-updates-fn (fn [offset]
+                                (get-updates {:offset offset}))}
+          :as opts}]]
+  (let [terminate-ch (chan)
+        close-ch-fn (fn [] (when close?
+                             (close! ch)))]
+    (go-loop [offset initial-offset]
+      (debug &quot;Trying to get-udpates with offset&quot; offset)
+      (let [get-updates-ch (get-updates-async get-updates-fn offset)]
+        (alt!
+          terminate-ch
+          (do
+            (warn &quot;Termination request&quot;) (close-ch-fn))
+          get-updates-ch
+          ([{:keys [ok result] :as response}]
+           (alt!
+             [[ch response]]
+             (if ok
+               (recur (reduce max offset
+                              (mapv (comp inc :update-id) result)))
+               (do
+                 (warn &quot;Telegram error&quot; response)
+                 (close-ch-fn)))
+             terminate-ch
+             (do
+               (warn &quot;Termination request&quot;) (close-ch-fn)))))))
+    (fn terminate! []
+      (put! terminate-ch :terminate))))</pre></td></tr><tr><td class="docs"><p>Creates transducer which handles supplied <code>command</code> updates. Second argument is a function which takes an Update map. </p>
+</td><td class="codes"><pre class="brush: clojure">(defn command-handling
+  [command handler]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([result] (rf result))
+      ([result update]
+       (let [message (get-message update)]
+         (when (and (bot-command? message)
+                    (= command (get-command message)))
+           (handler update))
+         (rf result update))))))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(comment
   (do
     (defn- echo
@@ -3220,10 +3258,17 @@ net.brehaut.ClojureTools = (function (SH) {
       (let [message (get-message update)
             chat-id (get-in message [:chat :id])
             text (:text message)]
-        (info &quot;sending message to&quot; chat-id)
         (send-message chat-id (str &quot;received '&quot; text &quot;'&quot;))))
-    (def handlers {&quot;start&quot; echo})
-    (def f (start-handle-loop handlers))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_slark.api">slark.api</li><li class="floating-toc-li" id="floating-toc_slark.core">slark.core</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+    (def c (chan 1 (comp
+                    (filter (comp not-empty :result))
+                    (map #(do (println %) (:result %)))
+                    cat
+                    (command-handling &quot;echo&quot; echo))))
+    (def terminate (updates-onto-chan c))
+    (go-loop [update (&lt;! c)]
+      (when update
+        (do (info &quot;Update&quot; (:update-id update) &quot;processed&quot;)
+            (recur (&lt;! c)))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_slark.telegram">slark.telegram</li><li class="floating-toc-li" id="floating-toc_slark">slark</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
 SyntaxHighlighter.all();
 
 // hackity hack
