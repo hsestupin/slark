@@ -7,7 +7,8 @@
                           logf tracef debugf infof warnf errorf fatalf reportf
                           spy get-env log-env)]
             [clojure.core.async :as async :refer
-             (close! put! poll! go go-loop chan <! <!! >! >!! alt! alts! alt!! alts!!)]))
+             (close! put! poll! go go-loop chan <! <!! >! >!!
+                     pub sub alt! alts! alt!! alts!!)]))
 
 (defn bot-command?
   "True if this update represents a bot command. Otherwise false"
@@ -24,23 +25,12 @@
   [update]
   (or (:message update) (:edited-message update)))
 
-(defn handle-update [handlers update state]
-  (let [message (get-message update)
-        command (get-command message)
-        handler (handlers command)]
-    (if handler
-      (do
-        (debug "Update" (:update-id update) "will be handled by" command)
-        (handler update state))
-      state)))
-
 (defn- get-updates-async
   "Async execute get-udpates function because it might utilize blocking IO."
   [get-updates-fn offset]
   (let [result-ch (chan 0)]
     (go (>! result-ch (get-updates-fn offset)))
     result-ch))
-
 
 (defn updates-onto-chan
   "Puts telegram updates obtained via `:get-updates-fn` into the supplied channel with `>!`. Also returns a function which will terminate go-loop when called. 
@@ -63,25 +53,38 @@
       (debug "Trying to get-udpates with offset" offset)
       (let [get-updates-ch (get-updates-async get-updates-fn offset)]
         (alt!
-          terminate-ch
-          (do
-            (warn "Termination request") (close-ch-fn))
+          terminate-ch (warn "Termination request") (close-ch-fn)
           get-updates-ch
           ([{:keys [ok result] :as response}]
            (alt!
-             [[ch response]]
-             (if ok
-               (recur (reduce max offset
-                              (mapv (comp inc :update-id) result)))
-               (do
-                 (warn "Telegram error" response)
-                 (close-ch-fn)))
-             terminate-ch
-             (do
-               (warn "Termination request") (close-ch-fn)))
-           ))))
+             [[ch response]] (if ok
+                               (recur (reduce max offset
+                                              (mapv (comp inc :update-id) result)))
+                               (do
+                                 (warn "Telegram error" response)
+                                 (close-ch-fn)))
+             terminate-ch (warn "Termination request") (close-ch-fn))))))
     (fn terminate! []
       (put! terminate-ch :terminate))))
+
+(defn any-command?
+  "Creates predicate function which returns true if update 
+represents any of supplied commands."
+  [& [commands]]
+  (fn [update]
+    (let [message (get-message update)]
+      (and (bot-command? message)
+           (some (partial = (get-command message)) commands)))))
+
+(defn conj-command
+  "If update represents a command then return an update conjoined with 
+`[:command command]`"
+  [update]
+  (let [message (get-message update)]
+    (if-let [command (get-command message)]
+      (conj update [:command command])
+      update)))
+
 
 (defn command-handling
   "Creates transducer which handles supplied `command` updates. Second argument is a function which takes an Update map. "
@@ -92,8 +95,7 @@
       ([result] (rf result))
       ([result update]
        (let [message (get-message update)]
-         (when (and (bot-command? message)
-                    (= command (get-command message)))
+         (when ((any-command? command) update) 
            (handler update))
          (rf result update))))))
 
@@ -106,14 +108,21 @@
             text (:text message)]
         (send-message chat-id (str "received '" text "'"))))
 
-    (def c (chan 1 (comp
-                    (filter (comp not-empty :result))
-                    (map #(do (println %) (:result %)))
-                    cat
-                    (command-handling "echo" echo))))
-    (def terminate (updates-onto-chan c))
+    (def to-pub (chan 1 (comp
+                         (filter (comp not-empty :result))
+                         (map #(do (println %) (:result %)))
+                         cat
+                         (map conj-command))))
+    (def p (pub to-pub :command))
+    (def terminate (updates-onto-chan to-pub))
 
-    (go-loop [update (<! c)]
+    (def echo-channel (chan 10))
+
+    (sub p "echo" echo-channel)
+    
+
+    (go-loop [update (<! echo-channel)]
       (when update
-        (do (info "Update" (:update-id update) "processed")
-            (recur (<! c)))))))
+        (echo update)
+        (info "Update" (:update-id update) "processed")
+        (recur (<! echo-channel))))))

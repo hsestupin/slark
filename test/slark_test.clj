@@ -1,8 +1,26 @@
 (ns slark-test
-  (:require [clojure.test :refer :all]
-            [slark :refer :all]
-            [clojure.core.async :refer (close! put! poll! go go-loop chan <! <!! >! >!!
-                                               alt! alts! alt!! alts!! timeout offer!)]))
+  (:require [clojure
+             [data :refer :all]
+             [test :refer :all]]
+            [clojure.core.async
+             :refer
+             [<!
+              <!!
+              >!
+              >!!
+              alt!
+              alt!!
+              alts!
+              alts!!
+              chan
+              close!
+              go
+              go-loop
+              offer!
+              poll!
+              put!
+              timeout]]
+            [slark :refer :all]))
 
 (deftest bot-command?-test
   (testing "test bot-message?"
@@ -48,11 +66,6 @@
               :date (System/currentTimeMillis)
               :text "test message"}}))
 
-(defn gen-updates
-  "Generate vector of `n` updates "
-  [n]
-  (into [] (repeatedly n gen-update)))
-
 
 (defn get-updates-from-ch-fn
   "Creates function which push new udpates from supplied channel. 
@@ -77,37 +90,31 @@
   (testing "Mechanism of push new updates onto a supplied channel."
     (testing "get updates from channel"
       (let [updates (chan)
-            get-updates-fn (get-updates-from-coll-fn (gen-updates 3))
+            get-updates-fn (get-updates-from-coll-fn (take 3 (repeatedly gen-update)))
             terminate (updates-onto-chan updates {:get-updates-fn get-updates-fn})]
         (dotimes [n 3]
           (let [[val ch] (alts!! [updates (timeout 100)])]
             (is (= ch updates) "expect update from updates channel")
             (is (:ok val))
             (is (:update-id (first (:result val))))))
-        (terminate)))
-
-    (testing "get-updates-fn shouldn't be called while go-loop parking on pushing onto channel"
-      (let [updates (chan 1)
-            telegram-updates-ch (chan 1)
-            get-updates-fn (get-updates-from-ch-fn telegram-updates-ch)
-            terminate (updates-onto-chan updates {:get-updates-fn get-updates-fn})]
-        (is (nil? (poll! updates)) "no updates has been pushed yet")
-        (let [update (gen-update)]
-          (is (offer! telegram-updates-ch update) "simulate new update from telegram")
-          (let [[val ch] (alts!! [updates (timeout 100)])]
-            (is (= ch updates) "expect update from updates channel")
-            (is (= (:update-id update) (->
-                                        val
-                                        :result
-                                        first
-                                        :update-id)))))
-        (is (offer! telegram-updates-ch (gen-update))
-            "simulate new update again. Fill `updates` buffer")
-        (is (offer! telegram-updates-ch (gen-update))
-            "Park while pushing into full `updates` buffer.")
-        (is (offer! telegram-updates-ch (gen-update))
-            "Fill `telegram-updates-ch` buffer")
-        (is (not (offer! telegram-updates-ch (gen-update)))
-            "new updates will not be pulled from get-updates unless we don't consume `updates` channel")
         (terminate)))))
 
+(defn map=
+  "Map deep comparison"
+  [map1 map2]
+  (let [d (diff map1 map2)]
+    (and (nil? (first d))
+         (nil? (second d)))))
+
+(deftest conj-command-test
+  (testing "Non-command update doesn't change with `conj-command`"
+    (let [update (gen-update)]
+      (is (map= update (conj-command update)))))
+  (testing "Command updates gets extended with :command value"
+    (let [update (->
+                  (gen-update)
+                  (update-in [:message :text]
+                             (constantly "/test hello"))
+                  (update-in [:message]
+                             #(conj % [:entities [{:type "bot_command" :offset 0 :length 5}]])))]
+      (is (map= (conj update [:command "test"]) (conj-command update))))))
