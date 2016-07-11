@@ -21,8 +21,8 @@ Here is a tiny snippent to give you an idea how easy to write bots with **Slark*
         text (:text message)]
     (send-message chat-id (str "received '" text "'"))))
 
-;; Create **core.async** channel which will take telegram updates. 
-;; Originally without any transducer being applied this channel will transmit update batches like:
+;; Create core.async channel which will receive telegram updates. 
+;; Originally without any transducer being applied this channel will transmit updates in batches like:
 (comment
 {:ok true,
  :result
